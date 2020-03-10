@@ -2,6 +2,8 @@ import Vue from 'vue'
 import VueRouter from 'vue-router'
 import Home from '../views/Home.vue'
 import GridGame from '../views/GridGame.vue'
+import Login from '../views/Login.vue'
+import store from '../store'
 
 Vue.use(VueRouter)
 
@@ -22,7 +24,21 @@ const routes = [
   {
     path: '/gridgame',
     name: 'GridGame',
-    component: GridGame
+    component: GridGame,
+    beforeEnter: (to, from, next) =>{
+        if(store.state.auth_token){
+            next()
+            return
+        }
+        alert("請先登入!")
+        // redirect it to login page
+        next("/login")
+    }
+  },
+  {
+    path: '/login',
+    name: 'Login',
+    component: Login
   }
 
 ]

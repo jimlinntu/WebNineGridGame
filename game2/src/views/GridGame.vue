@@ -72,11 +72,11 @@ export default {
                 break
             }
         }
+
         if(grids_are_full){
             // send POST request to the backend server
             this.axios.get(this.$store.state.backend_url + "ping").then((response) =>{
-                console.log(response)
-            })
+                console.log(response)})
         }else{
             alert("請將九宮格填滿後再提交!")
         }
