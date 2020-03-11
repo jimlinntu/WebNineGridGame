@@ -1,9 +1,23 @@
 <template>
     <b-container>
-        <b-row class="justify-content-md-center">
+        <b-row v-if="hasGridNumbers" class="justify-content-md-center">
+            <h1>我們的九宮格:</h1>
+        </b-row>
+        <b-row v-if="hasGridNumbers" class="justify-content-md-center">
+            <!-- TODO -->
+            <h3>你們目前抽到的題目是: 第 {{ $store.state.index }} 格(綠底格子) </h3>
+        </b-row>
+        <b-row v-if="hasGridNumbers">
+            <!-- add onclick to expand question -->
+            <b-col class="slot" cols="4" v-for="number in $store.state.gridNumbers" :key="number" @click="showQuestion">
+                {{ number }}
+            </b-col>
+        </b-row>
+        <!---->
+        <b-row v-if=!hasGridNumbers class="justify-content-md-center">
             <h1>請填入以下九宮格:</h1>
         </b-row>
-        <b-row>
+        <b-row v-if="!hasGridNumbers">
             <b-col class="slot" cols="4" v-for="i in 9" :key="i">
                 <draggable class="draggable_slot" v-model="slots[i-1]" group="people" 
                         :move="checkNumberMove">
@@ -12,17 +26,17 @@
             </b-col>
         </b-row>
         <hr>
-        <b-row class="justify-content-md-center">
+        <b-row v-if="!hasGridNumbers" class="justify-content-md-center">
             <h1>候選數字:</h1>
         </b-row>
-        <b-row>
+        <b-row v-if="!hasGridNumbers">
             <draggable v-model="unselectedNumbers" group="people" class="unselected_draggable_numbers"
                         :move="checkNumberMove">
                 <span class="unselectedNum" v-for="element in unselectedNumbers" :key="element">{{ element }}</span>
             </draggable>
         </b-row>
-        <hr>
-        <b-row class="justify-content-md-center">
+        <hr v-if="!hasGridNumbers">
+        <b-row v-if="!hasGridNumbers" class="justify-content-md-center">
             <b-button size="lg" @click.prevent="submitNineGrids">提交九宮格</b-button>
         </b-row>
     </b-container>
@@ -46,9 +60,15 @@ export default {
         slots.push([])
     }
     return {
-      selectedNumbers: [],
       unselectedNumbers: unselectedNumbers,
       slots: slots
+    }
+  },
+  computed: {
+    hasGridNumbers(){
+        if(this.$store.state.gridNumbers.length === 9){
+            return true
+        }else return false
     }
   },
   methods: {
@@ -66,20 +86,27 @@ export default {
         // check 9 grids are full
         window.console.log("Hello")
         let grids_are_full = true
+        let selectedNumbers = []
         for(let i = 0; i < 9; i++){
             if(this.slots[i].length !== 1){
                 grids_are_full = false
                 break
             }
+            else selectedNumbers.push(this.slots[i][0])
         }
 
         if(grids_are_full){
-            // send POST request to the backend server
-            this.axios.get(this.$store.state.backend_url + "ping").then((response) =>{
-                console.log(response)})
+            // dispatch action to Vuex
+            this.$store.dispatch("submitGridNumbers", {
+                    gridNumbers: selectedNumbers
+                })
+            
         }else{
             alert("請將九宮格填滿後再提交!")
         }
+    },
+    showQuestion(evt){
+        console.log(evt)
     }
   }
 }
