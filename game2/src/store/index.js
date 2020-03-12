@@ -49,11 +49,12 @@ export default new Vuex.Store({
       },
       submitGridNumbers(context, {gridNumbers}){
         // post gridNumbers to the backend server
-        Vue.axios.post(this.state.backend_url + "push_gridnumbers", {
-                gridnumbers: gridNumbers
+        Vue.axios.post(this.state.backend_url + "user/push_gridnumbers", {
+                gridnumbers: gridNumbers,
+                token: this.state.auth_token
             }).then((response)=>{
                 console.log(response)
-                // chagne gridNumbers
+                // change gridNumbers
                 context.commit("set_grid_numbers", {
                     gridNumbers: response.data.gridNumbers
                 })
@@ -62,6 +63,16 @@ export default new Vuex.Store({
                 console.log(error)
             })
         
+      },
+      getGridNumbers(context){
+        Vue.axios.post(this.state.backend_url + "user/get_gridnumbers", {
+              token: this.state.auth_token
+        }).then((response)=>{
+            console.log(response)
+            this.state.gridNumbers = response.data.gridNumbers
+        }).catch((error)=>{
+            console.log(error)
+        })
       }
   },
   modules: {

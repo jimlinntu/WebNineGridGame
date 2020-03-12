@@ -27,6 +27,8 @@ const routes = [
     component: GridGame,
     beforeEnter: (to, from, next) =>{
         if(store.state.auth_token){
+            // TODO: Fetch grid numbers, questions and index from the backend server
+            store.dispatch("getGridNumbers")
             next()
             return
         }
