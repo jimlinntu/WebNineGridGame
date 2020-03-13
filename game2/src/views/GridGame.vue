@@ -4,15 +4,16 @@
             <h1>我們的九宮格:</h1>
         </b-row>
         <b-row v-if="hasGridNumbers" class="justify-content-md-center">
-            <!-- TODO -->
-            <h3>你們目前抽到的題目是: 第 {{ $store.state.index }} 格(綠底格子) </h3>
+            <h3>我們目前抽到的題目是: 第 {{ $store.state.questionIndex }} 格(金框格子) </h3> 
         </b-row>
         <b-row v-if="hasGridNumbers">
             <!-- add onclick to expand question -->
-            <b-col class="slot" cols="4" v-for="number in $store.state.gridNumbers" :key="number" @click="showQuestion">
+            <b-col class="slot" :class="index == $store.state.questionIndex && question_index_class" cols="4" v-for="(number, index) in $store.state.gridNumbers" :key="number" @click="showQuestion">
                 {{ number }}
             </b-col>
         </b-row>
+        <hr v-if="hasGridNumbers">
+        <Question v-if="hasGridNumbers"></Question>
         <!---->
         <b-row v-if=!hasGridNumbers class="justify-content-md-center">
             <h1>請填入以下九宮格:</h1>
@@ -25,7 +26,7 @@
                 </draggable>
             </b-col>
         </b-row>
-        <hr>
+        <hr v-if="!hasGridNumbers">
         <b-row v-if="!hasGridNumbers" class="justify-content-md-center">
             <h1>候選數字:</h1>
         </b-row>
@@ -44,11 +45,13 @@
 
 <script>
 import draggable from 'vuedraggable'
+import Question from '@/components/Question'
 
 export default {
   name: 'GridGame',
   components: {
-    draggable
+    draggable,
+    Question
   },
   data () {
     let unselectedNumbers = []
@@ -69,6 +72,12 @@ export default {
         if(this.$store.state.gridNumbers.length === 9){
             return true
         }else return false
+    },
+    question_index_class(){
+        if(this.$store.state.questionIndex != -1){
+            return "question_index"
+        }
+        return ""
     }
   },
   methods: {
@@ -142,6 +151,10 @@ export default {
     border: double;
     cursor: grab;
     display: inline-block;
+}
+
+.question_index{
+    color: rgb(255,165,0)
 }
 
 </style>
