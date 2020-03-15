@@ -15,6 +15,7 @@ import (
     "go.mongodb.org/mongo-driver/mongo"
     "go.mongodb.org/mongo-driver/mongo/options"
     "go.mongodb.org/mongo-driver/mongo/readpref"
+    "github.com/googollee/go-socket.io"
     // "io/ioutil"
 )
 
@@ -60,16 +61,18 @@ func destroyMongoClient(client *mongo.Client) {
     fmt.Println("[*] Client Destruction Success!")
 }
 
-func createDatabaseCollection (client *mongo.Client, to_clear_collection bool) *mongo.Collection{
+func createDatabaseCollection (client *mongo.Client, to_clear_collection bool) (*mongo.Collection, *mongo.Collection){
     collection := client.Database(databaseName).Collection("users")
+    question_collection := client.Database(databaseName).Collection("questions")
     // Clear all users
     if to_clear_collection {
+        log.Printf("[*] Clearing collections")
         _, err := collection.DeleteMany(context.TODO(), bson.D{{}})
         if err != nil {
             log.Fatal(err)
         }
     }
-    return collection
+    return collection, question_collection
 }
 
 func initialize_users(collection *mongo.Collection, max_team int){
@@ -133,9 +136,31 @@ func check_authentication(collection *mongo.Collection) gin.HandlerFunc{
     }
 }
 
+func (user * User)findUser(collection *mongo.Collection) bool{
+    var result User
+    filter := bson.D{
+            {"account", user.Account},
+            {"password", user.Password},
+        }
+
+    err := collection.FindOne(context.TODO(), filter).Decode(&result)
+    if err != nil{
+        // this account is not found
+        log.Printf("[!] Cannot find %s", user.Account)
+        return false
+    }
+    // Copy result field values to this user
+    log.Printf("[!] User %s is logined!", user.Account)
+    *user = result // default copy
+    if user.GridNumbers == nil{
+        user.GridNumbers = make([]int, 0) // avoid gin.H bug
+    }
+    return true
+}
+
 func (user *User) saveGridNumbersAndIntialize(collection *mongo.Collection) bool{
     var question_order []int
-    question_index := 0
+    question_index := -1
     for i:= 0; i < 9; i++ {
         question_order = append(question_order, i)
     }
@@ -144,7 +169,7 @@ func (user *User) saveGridNumbersAndIntialize(collection *mongo.Collection) bool
         question_order[i], question_order[j] = question_order[j], question_order[i]
     })
     // check if user's grid numbers is valid
-    log.Printf("User %s submitted grid numbers are: %v", user.GridNumbers)
+    log.Printf("User %s submitted grid numbers are: %v", user.Account, user.GridNumbers)
     if len(user.GridNumbers) != 9 {
         log.Printf("Grid numbers' length should be 9!")
         return false
@@ -184,6 +209,7 @@ func (user *User) getGridNumbersByAccount(collection *mongo.Collection) bool{
     }
 
     if user.GridNumbers == nil {
+        user.GridNumbers = make([]int, 0) // avoid gin.H bug
         log.Printf("[*] User %s's grid numbers have not been submitted yet", user.Account)
         return false
     }
@@ -195,28 +221,57 @@ func (user *User) saveAnswer(){
     // Find this user by token(password) and update its answer
 }
 
+func initialize_socket_io() (*socketio.Server){
+    server, err := socketio.NewServer(nil)
+    if err != nil {
+        log.Fatal(err)
+    }
+    //
+    server.OnConnect("/", func(s socketio.Conn) error{
+        s.SetContext("")
+        log.Printf("[s] socket **id == %s** is connected", s.ID())
+        return nil
+    })
+    server.OnDisconnect("/", func(s socketio.Conn, reason string){
+        log.Printf("[s] socket **id == %s**  connection closed, reason: %s", s.ID(), reason)
+    })
+    go server.Serve()
+    return server
+}
+
 func main(){
     to_clear_collection := os.Args[1]
     //
     rand.Seed(115813)
     // 
     client := createMongoClient()
-    collection := createDatabaseCollection(client, to_clear_collection == "true")
-    initialize_users(collection, 10)
+    user_collection, _ := createDatabaseCollection(client, to_clear_collection == "true")
+    initialize_users(user_collection, 10)
+    //
+    server := initialize_socket_io()
+    defer server.Close()
 
     router := gin.Default()
-    router.Use(cors.Default())
+    config := cors.DefaultConfig()
+    config.AllowOrigins = []string{"http://localhost:8080"}
+    config.AllowCredentials = true
+
+    router.Use(cors.New(config))
+    // Socket initialization
+    router.GET("/socket/", gin.WrapH(server))
+    router.POST("/socket/", gin.WrapH(server))
 
     private_router := router.Group("/user")
-    private_router.Use(check_authentication(collection))
+    private_router.Use(check_authentication(user_collection))
 
     // private part (authentication required)
     {
+        // socket io
         private_router.POST("/get_gridnumbers", func(c *gin.Context){
             var user User
             account, _ := c.MustGet("account").(string)
             user.Account = account
-            found := user.getGridNumbersByAccount(collection)
+            found := user.getGridNumbersByAccount(user_collection)
 
             if !found {
                 c.AbortWithStatus(http.StatusNotFound)
@@ -239,7 +294,7 @@ func main(){
             if c.ShouldBindBodyWith(&user, binding.JSON) == nil{
                 log.Printf("Get %s's gridNumbers: %v\n", account, user.GridNumbers)
                 // Save grid numbers to database
-                success := user.saveGridNumbersAndIntialize(collection)
+                success := user.saveGridNumbersAndIntialize(user_collection)
                 // if error
                 if !success {
                     c.String(http.StatusNotFound, notfound)
@@ -285,12 +340,17 @@ func main(){
     router.POST("/auth", func(c *gin.Context){
         var user User
         if c.ShouldBindJSON(&user) == nil{
-            fmt.Printf("account: %s, password: %s\n", user.Account, user.Password)
+            log.Printf("[*] Verifying account: %s, password: %s\n", user.Account, user.Password)
+            success := user.findUser(user_collection)
+            if !success {
+                c.String(http.StatusNotAcceptable, "This account is not found")
+            }
+            log.Printf("[*] %v\n", user)
             c.JSON(http.StatusOK, gin.H{
                 "account": user.Account,
                 "password": user.Password,
                 "token": user.Password,
-                "gridNumbers": []int{}, // TODO
+                "gridNumbers": user.GridNumbers,
             })
         }else{
             c.String(http.StatusNotFound, "Page Not Found")
