@@ -4,16 +4,20 @@
             <h1>我們的九宮格:</h1>
         </b-row>
         <b-row v-if="hasGridNumbers" class="justify-content-md-center">
-            <h3>我們目前抽到的題目是: 第 {{ $store.state.questionIndex }} 格(金框格子) </h3> 
+            <h3>我們目前選的題目是: 第 {{ questionIndex }} 格(金黃色) (顯示 ? 代表你還沒選下一題) </h3> 
         </b-row>
         <b-row v-if="hasGridNumbers">
             <!-- add onclick to expand question -->
-            <b-col class="slot" :class="index == $store.state.questionIndex && question_index_class" cols="4" v-for="(number, index) in $store.state.gridNumbers" :key="number" @click="showQuestion">
+            <b-col class="slot" :class="{
+                    'question_index': index == $store.state.questionIndex,
+                    'question_finished': $store.state.question_finished_mask[index]
+                }" cols="4" v-for="(number, index) in $store.state.gridNumbers" :key="number" @click="selectQuestion($event, index)">
                 {{ number }}
             </b-col>
         </b-row>
         <hr v-if="hasGridNumbers">
         <Question v-if="hasGridNumbers"></Question>
+
         <!---->
         <b-row v-if=!hasGridNumbers class="justify-content-md-center">
             <h1>請填入以下九宮格:</h1>
@@ -78,6 +82,13 @@ export default {
             return "question_index"
         }
         return ""
+    },
+    questionIndex(){
+        let index = this.$store.state.questionIndex
+        if(index == -1){
+            return "?"
+        }
+        return index + 1
     }
   },
   methods: {
@@ -114,12 +125,21 @@ export default {
             alert("請將九宮格填滿後再提交!")
         }
     },
-    showQuestion(evt){
+    selectQuestion(evt, index){
         // if he haven't choose a question
+        let question_finished_mask = this.$store.state.question_finished_mask
+        if(question_finished_mask.length !== 9){
+            console.log("[*] question_finished_mask looks weird: ", question_finished_mask)
+            return
+        }
         if(confirm("你確定要選這題嗎? (選完這題, 在解完這題之前是不能換題的!)")){
-            console.log("Yes")
+            // send this question index to the backend server
+            console.log("[*] Sending selected index to the backend server")
+            this.$store.dispatch("selectQuestion", {
+                    questionIndex: index
+                })
         }else{
-            console.log("No")
+            console.log("[!] Cancel selectQuestion function...")
         }
     }
   }
@@ -159,7 +179,11 @@ export default {
 }
 
 .question_index{
-    color: rgb(255,165,0)
+    color: rgb(255,165,0);
+}
+
+.question_finished{
+    color: rgb(0, 128, 0);
 }
 
 </style>

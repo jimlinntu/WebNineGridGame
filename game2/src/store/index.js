@@ -20,28 +20,32 @@ export default new Vuex.Store({
       auth_status: '未登入',
       auth_token: '',
       gridNumbers: [], // grid numbers retrieve from backend
-      questionOrder: [],
-      questionDescriptions: [],
+      question: {}, // question = {description: ..., image: ...}
       questionIndex: -1,
+      question_finished_mask: [],
   },
   mutations: {
       set_login_loading(state) {
           state.auth_status = "登入中"
       },
-      set_login_success(state, {token , gridNumbers}) {
+      set_login_success(state, {token}) {
           state.auth_status = "登入成功"
           state.auth_token = token
-          state.gridNumbers = gridNumbers
       },
       set_login_fail(state) {
           state.auth_status = "登入失敗"
       },
-      set_grid_numbers_and_questions(state, {gridNumbers, 
-            questionOrder, questionIndex}){
+      set_grid_numbers_and_questions(state, {gridNumbers, questionIndex, question_finished_mask}){
           state.gridNumbers = gridNumbers
-          state.questionOrder = questionOrder
           state.questionIndex = questionIndex
+          state.question_finished_mask = question_finished_mask
+          // TODO: question
+          
       },
+      set_questionIdx_and_question(state, {questionIndex, question}){
+          state.questionIndex = questionIndex
+          // TODO: question
+      }
   },
   actions: {
       login(context, { account, password }){
@@ -56,7 +60,6 @@ export default new Vuex.Store({
               console.log(response)
               context.commit("set_login_success", {
                   token: response.data.token,
-                  gridNumbers: response.data.gridNumbers
               })
           }).catch((error)=>{
               console.log(error)
@@ -73,8 +76,8 @@ export default new Vuex.Store({
                 // change gridNumbers
                 context.commit("set_grid_numbers_and_questions", {
                     gridNumbers: response.data.gridNumbers,
-                    questionOrder: response.data.questionOrder,
                     questionIndex: response.data.questionIndex,
+                    question_finished_mask: response.data.question_finished_mask,
                 })
                 
             }).catch((error)=>{
@@ -90,8 +93,8 @@ export default new Vuex.Store({
             // assign gridNumbers
             context.commit("set_grid_numbers_and_questions", {
                 gridNumbers: response.data.gridNumbers,
-                questionOrder: response.data.questionOrder,
-                questionIndex: response.data.questionIndex
+                questionIndex: response.data.questionIndex,
+                question_finished_mask: response.data.question_finished_mask,
             })
 
         }).catch((error)=>{
@@ -108,7 +111,23 @@ export default new Vuex.Store({
         }).catch((error)=>{
             console.log(error)
         })
+      },
+      selectQuestion(context, {questionIndex}){
+        Vue.axios.post(this.state.backend_url + "user/select_question", {
+          token: this.state.auth_token,
+          questionIndex: questionIndex,
+        }).then((response)=>{
+            console.log(response)
+            // update question finished mask
+            context.commit("set_questionIdx_and_question", {
+                questionIndex: response.data.questionIndex,
+                question: {} // TODO
+            })
+        }).catch((error)=>{
+            console.log(error)
+        })
       }
+
   },
   modules: {
   }
