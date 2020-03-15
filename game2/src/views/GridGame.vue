@@ -115,7 +115,12 @@ export default {
         }
     },
     showQuestion(evt){
-        console.log(evt)
+        // if he haven't choose a question
+        if(confirm("你確定要選這題嗎? (選完這題, 在解完這題之前是不能換題的!)")){
+            console.log("Yes")
+        }else{
+            console.log("No")
+        }
     }
   }
 }

@@ -34,10 +34,9 @@ export default {
   },
   methods: {
     login(evt){
-      console.log(this.loginForm)
+      console.log("[*] User login form: ", this.loginForm)
       let account = this.loginForm.account
       let password = this.loginForm.password
-      console.log(account)
       // perform backend authentication
       this.$store.dispatch("login", {
         account: account,
