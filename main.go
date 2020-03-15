@@ -1,5 +1,11 @@
 package main
 import (
+    "encoding/csv"
+    "encoding/base64"
+    "io"
+    "io/ioutil"
+    "bufio"
+    "path"
     "os"
     "math/rand"
     "strconv"
@@ -21,6 +27,7 @@ import (
 
 var databaseName = "WebNineGameDB"
 var notfound = "Page Not Found"
+var DATA_FOLDER = "./data"
 
 // A team is a user, admin is also a user
 type User struct {
@@ -28,14 +35,14 @@ type User struct {
     Password string `json:"password"`
     Token string `json:"token"`
     GridNumbers []int `json:"gridnumbers"`
-    QuestionOrder []int `json:"questionorder"`
     QuestionIndex int `json:"questionindex"`
+    QuestionFinishedMask []bool `json:"questionfinishedmask"`
     AnswerText string `json:"answertext"`
     AnswerBase64Str string `json:"answerbase64str"`
 }
 
 type Question struct {
-    Title string `json:"title"`
+    Description string `json:"description"`
     Base64Image string `json:"base64image"`
 }
 
@@ -159,15 +166,9 @@ func (user * User)findUser(collection *mongo.Collection) bool{
 }
 
 func (user *User) saveGridNumbersAndIntialize(collection *mongo.Collection) bool{
-    var question_order []int
-    question_index := -1
-    for i:= 0; i < 9; i++ {
-        question_order = append(question_order, i)
-    }
-    // shuffle question order
-    rand.Shuffle(len(question_order), func(i, j int){
-        question_order[i], question_order[j] = question_order[j], question_order[i]
-    })
+    question_index := -1 // have not chosen a question
+    // Initiailize question mask
+    question_finished_mask := make([]bool, 9)
     // check if user's grid numbers is valid
     log.Printf("User %s submitted grid numbers are: %v", user.Account, user.GridNumbers)
     if len(user.GridNumbers) != 9 {
@@ -180,8 +181,8 @@ func (user *User) saveGridNumbersAndIntialize(collection *mongo.Collection) bool
         }, bson.D{
             {"$set", bson.D{
                         {"gridnumbers", user.GridNumbers},
-                        {"questionorder", question_order},
                         {"questionindex", question_index},
+                        {"questionfinishedmask", question_finished_mask},
                     },
             },
         },
@@ -192,7 +193,7 @@ func (user *User) saveGridNumbersAndIntialize(collection *mongo.Collection) bool
         return false
     }
     // Success
-    user.QuestionOrder = question_order
+    user.QuestionFinishedMask = question_finished_mask
     user.QuestionIndex = question_index
     return true
 }
@@ -213,12 +214,28 @@ func (user *User) getGridNumbersByAccount(collection *mongo.Collection) bool{
         log.Printf("[*] User %s's grid numbers have not been submitted yet", user.Account)
         return false
     }
-    log.Printf("[*] User %s's grid numbers are: %v", user.Account, user.GridNumbers)
+    log.Printf("[*] User %s's grid numbers are: %v, question finished mask are %v", user.Account, user.GridNumbers, user.QuestionFinishedMask)
     return true
 }
 
 func (user *User) saveAnswer(){
     // Find this user by token(password) and update its answer
+}
+
+func (user *User) updateQuestionIndex(collection *mongo.Collection) bool{
+    filter := bson.D{
+            {"account", user.Account},
+            {"questionindex", -1}, // update questionindex only when this questionindex == -1
+        }
+    update := bson.D{
+            {"$set", bson.D{{"questionindex", user.QuestionIndex}}},
+        }
+    err := collection.FindOneAndUpdate(context.TODO(), filter, update).Err()
+    if err != nil {
+        log.Printf("[!] User %s try to update question index to %d but failed! (It may due to qidx != -1)", user.Account, user.QuestionIndex)
+        return false
+    }
+    return true
 }
 
 func initialize_socket_io() (*socketio.Server){
@@ -239,6 +256,49 @@ func initialize_socket_io() (*socketio.Server){
     return server
 }
 
+func load_image_as_base64_string(image_path string) string{
+    file, err := os.Open(image_path)
+    defer file.Close()
+    if err != nil {
+        log.Fatal(err)
+    }
+    //
+    reader := bufio.NewReader(file)
+    content, err := ioutil.ReadAll(reader)
+    if err != nil {
+        log.Fatal(err)
+    }
+    encoded := base64.StdEncoding.EncodeToString(content)
+    return encoded
+}
+
+
+func load_question_from_csv(filename string) []Question{
+    file, err := os.Open(path.Join(DATA_FOLDER, filename))
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer file.Close()
+    var questions []Question
+    r := csv.NewReader(file)
+    for {
+        record, err := r.Read()
+        if err == io.EOF {
+            break
+        }
+        if err != nil {
+            log.Fatal(err)
+        }
+
+        description, image_path := record[0], record[1]
+
+        questions = append(questions, Question{Description: description,
+                                               Base64Image: load_image_as_base64_string(path.Join(DATA_FOLDER, image_path)),
+                                           })
+    }
+    return questions
+}
+
 func main(){
     to_clear_collection := os.Args[1]
     //
@@ -246,8 +306,11 @@ func main(){
     // 
     client := createMongoClient()
     user_collection, _ := createDatabaseCollection(client, to_clear_collection == "true")
-    initialize_users(user_collection, 10)
-    //
+    if to_clear_collection == "true" {
+        initialize_users(user_collection, 10)
+    }
+    // TODO: use questions
+    _ = load_question_from_csv("questions.csv")
     server := initialize_socket_io()
     defer server.Close()
 
@@ -281,8 +344,8 @@ func main(){
             // Return grid numbers to the front end client
             c.JSON(http.StatusOK, gin.H{
                 "gridNumbers": user.GridNumbers,
-                "questionOrder": user.QuestionOrder,
                 "questionIndex": user.QuestionIndex,
+                "question_finished_mask": user.QuestionFinishedMask,
             })
             return
         })
@@ -303,8 +366,8 @@ func main(){
 
                 c.JSON(http.StatusOK, gin.H{
                     "gridNumbers": user.GridNumbers,
-                    "questionOrder": user.QuestionOrder,
                     "questionIndex": user.QuestionIndex,
+                    "question_finished_mask": user.QuestionFinishedMask,
                 })
             }else{
                 c.String(http.StatusNotFound, "Page Not Found")
@@ -324,8 +387,28 @@ func main(){
         })
 
         // A user can check what he have answered for this question
-        private_router.GET("/get_previous_answer", func(c *gin.Context){
+        private_router.GET("/get_current_answer", func(c *gin.Context){
             // TODO:
+        })
+
+        // select question
+        private_router.POST("/select_question", func(c *gin.Context){
+            // Update question Index
+            account, _ := c.MustGet("account").(string)
+            var user User
+            if c.ShouldBindBodyWith(&user, binding.JSON) == nil{
+                user.Account = account // assign its account
+                success := user.updateQuestionIndex(user_collection)
+                if success {
+                    c.JSON(http.StatusOK, gin.H{
+                        "questionIndex": user.QuestionIndex,
+                    })
+                }else{
+                    c.String(http.StatusNotAcceptable, "")
+                }
+            }else{
+                c.String(http.StatusNotAcceptable, "Select question fail!")
+            }
         })
     }
 
@@ -345,12 +428,10 @@ func main(){
             if !success {
                 c.String(http.StatusNotAcceptable, "This account is not found")
             }
-            log.Printf("[*] %v\n", user)
             c.JSON(http.StatusOK, gin.H{
                 "account": user.Account,
                 "password": user.Password,
                 "token": user.Password,
-                "gridNumbers": user.GridNumbers,
             })
         }else{
             c.String(http.StatusNotFound, "Page Not Found")
