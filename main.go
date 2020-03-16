@@ -178,6 +178,7 @@ func (user *User) saveGridNumbersAndIntialize(collection *mongo.Collection) bool
     _, err := collection.UpdateOne(context.TODO(),
         bson.D{
             { "account", user.Account },
+            { "gridnumbers", nil}, // only update gridnumbers that have not initiailized!
         }, bson.D{
             {"$set", bson.D{
                         {"gridnumbers", user.GridNumbers},
@@ -218,8 +219,38 @@ func (user *User) getGridNumbersByAccount(collection *mongo.Collection) bool{
     return true
 }
 
-func (user *User) saveAnswer(){
-    // Find this user by token(password) and update its answer
+func (user *User) saveAnswer(collection *mongo.Collection) bool{
+    // Find this user by account and update its answer if its questionIndex != -
+    filter := bson.D{
+            {"account", user.Account },
+            {"questionindex", bson.D{{"$ne", -1}}}, // questionIndex should not equal to -1
+        }
+
+    // Register this team's answer text and image
+    update := bson.D{
+            {"$set", bson.D{{"answertext", user.AnswerText}, {"answerbase64str", user.AnswerBase64Str}}},
+        }
+
+    err := collection.FindOneAndUpdate(context.TODO(), filter, update).Err()
+    if err != nil {
+        log.Printf("[*] User %s try to saveAnswer but failed", user.Account)
+        return false
+    }
+    log.Printf("[*] User %s's answer text: %s successfully saved!", user.Account, user.AnswerText)
+    return true
+}
+
+func (user *User) getAnswer(collection *mongo.Collection) bool {
+    filter := bson.D{
+            {"account", user.Account},
+            {"questionindex", bson.D{{"$ne", -1}}},
+        }
+    err := collection.FindOne(context.TODO(), filter).Decode(user)
+    if err != nil{
+        log.Printf("[*] User %s getAnswer attempt failed!", user.Account)
+        return false
+    }
+    return true
 }
 
 func (user *User) updateQuestionIndex(collection *mongo.Collection) bool{
@@ -227,14 +258,21 @@ func (user *User) updateQuestionIndex(collection *mongo.Collection) bool{
             {"account", user.Account},
             {"questionindex", -1}, // update questionindex only when this questionindex == -1
         }
+    if user.QuestionIndex < 0 || user.QuestionIndex > 8{
+        log.Printf("[!] user.QuestionIndex should be in [0, 8], but the user give %d", user.QuestionIndex)
+        return false
+    }
+    log.Printf("[*] User %s selected question index is %d", user.Account, user.QuestionIndex)
     update := bson.D{
             {"$set", bson.D{{"questionindex", user.QuestionIndex}}},
         }
-    err := collection.FindOneAndUpdate(context.TODO(), filter, update).Err()
+    var before_updated_user User
+    err := collection.FindOneAndUpdate(context.TODO(), filter, update).Decode(&before_updated_user)
     if err != nil {
-        log.Printf("[!] User %s try to update question index to %d but failed! (It may due to qidx != -1)", user.Account, user.QuestionIndex)
+        log.Printf("[!] User %s try to update question index to %d but failed! (It may due to current database qidx != -1)", user.Account, user.QuestionIndex)
         return false
     }
+    user.GridNumbers = before_updated_user.GridNumbers
     return true
 }
 
@@ -309,8 +347,9 @@ func main(){
     if to_clear_collection == "true" {
         initialize_users(user_collection, 10)
     }
-    // TODO: use questions
-    _ = load_question_from_csv("questions.csv")
+    // Load questions from the csv file
+    questions := load_question_from_csv("questions.csv")
+    //
     server := initialize_socket_io()
     defer server.Close()
 
@@ -329,7 +368,7 @@ func main(){
 
     // private part (authentication required)
     {
-        // socket io
+        // Get all information
         private_router.POST("/get_gridnumbers", func(c *gin.Context){
             var user User
             account, _ := c.MustGet("account").(string)
@@ -341,11 +380,23 @@ func main(){
                 return
             }
 
+            var question Question
+            // If question index == -1, indicate that this team's questionIndex have not been determined
+            if user.QuestionIndex != -1{
+                question = questions[user.GridNumbers[user.QuestionIndex]-1]
+            }
+
             // Return grid numbers to the front end client
             c.JSON(http.StatusOK, gin.H{
                 "gridNumbers": user.GridNumbers,
                 "questionIndex": user.QuestionIndex,
                 "question_finished_mask": user.QuestionFinishedMask,
+                "question": gin.H{
+                    "description": question.Description,
+                    "image": question.Base64Image,
+                },
+                "answertext": user.AnswerText,
+                "answerbase64str": user.AnswerBase64Str,
             })
             return
         })
@@ -376,19 +427,50 @@ func main(){
         })
 
         private_router.POST("/push_answer", func (c *gin.Context){
-            // account, _ := c.MustGet("account").(string)
+            account, _ := c.MustGet("account").(string)
             var user User
+            user.Account = account
+
             if c.ShouldBindBodyWith(&user, binding.JSON) == nil {
+                log.Printf("[*] Received User %s's answer %s", account, user.AnswerText)
+                success := user.saveAnswer(user_collection)
+                if !success {
+                    log.Printf("[*] User %s try to push_answer but failed!", account)
+                    c.String(http.StatusNotAcceptable, "push_answer failed! (It may due to questoinIndex == -1)")
+                    return
+                }
                 // TODO: save answer text and image base64 string to database
                 c.String(http.StatusOK, "Answer Received")
+                return
             }else{
                 c.String(http.StatusNotAcceptable, "Input is weird")
+                return
             }
         })
 
         // A user can check what he have answered for this question
-        private_router.GET("/get_current_answer", func(c *gin.Context){
-            // TODO:
+        private_router.POST("/get_answer", func(c *gin.Context){
+            account, _ := c.MustGet("account").(string)
+            var user User
+            user.Account = account
+            log.Printf("account: %s \n", account)
+
+            if c.ShouldBindBodyWith(&user, binding.JSON) == nil {
+                log.Printf("[*] User %s try to get_answer", account)
+                success := user.getAnswer(user_collection)
+                if !success {
+                    c.String(http.StatusNotAcceptable, "get Answer failed")
+                    return
+                }
+                c.JSON(http.StatusOK, gin.H{
+                    "answertext": user.AnswerText,
+                    "answerbase64str": user.AnswerBase64Str,
+                })
+                return
+            }else{
+                c.String(http.StatusNotAcceptable, "/get_answer's input body is weird!")
+                return
+            }
         })
 
         // select question
@@ -400,8 +482,13 @@ func main(){
                 user.Account = account // assign its account
                 success := user.updateQuestionIndex(user_collection)
                 if success {
+                    // Return questionIndex and question
                     c.JSON(http.StatusOK, gin.H{
                         "questionIndex": user.QuestionIndex,
+                        "question": gin.H{
+                            "description": questions[user.GridNumbers[user.QuestionIndex]-1].Description,
+                            "image": questions[user.GridNumbers[user.QuestionIndex]].Base64Image,
+                        },
                     })
                 }else{
                     c.String(http.StatusNotAcceptable, "")
