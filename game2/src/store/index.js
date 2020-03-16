@@ -23,6 +23,7 @@ export default new Vuex.Store({
       question: {}, // question = {description: ..., image: ...}
       questionIndex: -1,
       question_finished_mask: [],
+      answer: {}, // answer corresponding to current question
   },
   mutations: {
       set_login_loading(state) {
@@ -35,16 +36,27 @@ export default new Vuex.Store({
       set_login_fail(state) {
           state.auth_status = "登入失敗"
       },
-      set_grid_numbers_and_questions(state, {gridNumbers, questionIndex, question_finished_mask}){
+      set_grid_numbers_and_questions_and_answer(state, {gridNumbers, questionIndex, 
+                                             question_finished_mask, question,
+                                             answertext, answerbase64str}){
           state.gridNumbers = gridNumbers
           state.questionIndex = questionIndex
           state.question_finished_mask = question_finished_mask
-          // TODO: question
-          
+          state.question = question
+          state.answer = {
+              answertext: answertext,
+              answerbase64str: answerbase64str
+          }
       },
       set_questionIdx_and_question(state, {questionIndex, question}){
           state.questionIndex = questionIndex
-          // TODO: question
+          state.question = question
+      },
+      set_answer(state, {answertext, answerbase64str}){
+          state.answer = {
+            answertext: answertext,
+            answerbase64str: answerbase64str,
+          }
       }
   },
   actions: {
@@ -74,10 +86,13 @@ export default new Vuex.Store({
             }).then((response)=>{
                 console.log(response)
                 // change gridNumbers
-                context.commit("set_grid_numbers_and_questions", {
+                context.commit("set_grid_numbers_and_questions_and_answer", {
                     gridNumbers: response.data.gridNumbers,
                     questionIndex: response.data.questionIndex,
                     question_finished_mask: response.data.question_finished_mask,
+                    question: {}, // there is no question
+                    answertext: "", // there is no answer yet been submitted
+                    answerbase64str: "" // there is no answer yet been submitted
                 })
                 
             }).catch((error)=>{
@@ -91,10 +106,13 @@ export default new Vuex.Store({
         }).then((response)=>{
             console.log(response)
             // assign gridNumbers
-            context.commit("set_grid_numbers_and_questions", {
+            context.commit("set_grid_numbers_and_questions_and_answer", {
                 gridNumbers: response.data.gridNumbers,
                 questionIndex: response.data.questionIndex,
                 question_finished_mask: response.data.question_finished_mask,
+                question: response.data.question,
+                answertext: response.data.answertext,
+                answerbase64str: response.data.answerbase64str
             })
 
         }).catch((error)=>{
@@ -108,6 +126,22 @@ export default new Vuex.Store({
             answerbase64str: base64_str
         }).then((response)=>{
             console.log(response)
+            // Get current answer from the backend server
+            context.dispatch("getAnswer")
+        }).catch((error)=>{
+            console.log(error)
+        })
+      },
+      getAnswer(context){
+        Vue.axios.post(this.state.backend_url + "user/get_answer", {
+            token: this.state.auth_token,
+        }).then((response)=>{
+            console.log(response)
+            // TODO: set current answer
+            context.commit("set_answer", {
+                answertext: response.data.answertext,
+                answerbase64str: response.data.answerbase64str
+            })
         }).catch((error)=>{
             console.log(error)
         })
@@ -121,7 +155,7 @@ export default new Vuex.Store({
             // update question finished mask
             context.commit("set_questionIdx_and_question", {
                 questionIndex: response.data.questionIndex,
-                question: {} // TODO
+                question: response.data.question
             })
         }).catch((error)=>{
             console.log(error)

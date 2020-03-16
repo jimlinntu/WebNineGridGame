@@ -4,28 +4,34 @@
         <h1>問題<b-icon-question></b-icon-question></h1>
       </b-row>
       <b-row class="text-center">
-        <b-col> </b-col>
+        <b-col cols="12" v-if="$store.state.question.description"><h3> {{ $store.state.question.description }} </h3></b-col>
+        <b-col cols="12" v-if="$store.state.question.image"><img :src="'data:image/png;base64, ' + $store.state.question.image"/></b-col>
       </b-row>
-      <b-row>
+      <hr>
+      <b-row v-if="$store.state.question.description">
         <b-col cols="12">
           <b-form-input v-model="answer.text" placeholder="請輸入答案"></b-form-input>
         </b-col>
       </b-row>
       <hr>
-      <b-row>
+      <b-row v-if="$store.state.question.description">
         <b-col cols="12">
           <b-form-file v-model="answer.file" :state="Boolean(answer.file)" placeholder="請上傳照片"></b-form-file>
         </b-col>
+        <b-col cols="12">
+          <img :src="answer.base64_str"/>
+        </b-col>
       </b-row>
       <hr>
-      <b-row class="text-center">
+      <b-row class="text-center" v-if="$store.state.question.description">
         <b-col><b-button @click.prevent="submitAnswer">提交答案</b-button></b-col>
       </b-row>
       <hr>
       <b-row class="text-center">
-        <b-col class="previous_answer">之前已提交的回答為: {{ getPreviousAnswer }}</b-col>
+        <b-col cols="12"><h4>之前已提交的內容為:</h4></b-col>
+        <b-col cols="12"class="previous_answer">{{ getCurrentAnswer.answertext }} </b-col>
+        <b-col cols="12"><img :src="getCurrentAnswer.answerbase64str"/></b-col>
       </b-row>
-      <img :src="answer.base64_str"/>
     </b-container>
 </template>
 
@@ -57,25 +63,35 @@ export default {
         getBase64(newFile).then((data) =>{
           this.answer.base64_str = data
         })
+      }else{
+        this.answer.base64_str = null
       }
     }
   },
   computed: {
-    getPreviousAnswer(){
+    getCurrentAnswer(){
       // get previous answer from backend
-      return "previous answers"
+      return this.$store.state.answer
     }
   },
   methods:{
     async submitAnswer(){
+      // questionIndex must not be -1
+      console.log("[*] Submit questionIndex == : ", this.$store.state.questionIndex)
+      if(this.$store.state.questionIndex === -1){
+        return
+      }
       let base64_str = null
       if(this.answer.file !== null){
         base64_str = await getBase64(this.answer.file)
       }
+      // Wait for this promise to be resolved
       this.$store.dispatch("submitAnswer", {
         text: this.answer.text,
         base64_str: base64_str
       })
+      // Reset file to null
+      this.answer.file = null
     }
   }
 }
@@ -84,5 +100,10 @@ export default {
 <style scoped>
 .previous_answer {
   font-size: 20px;
+}
+
+img {
+    width: 70%;
+    height: auto;
 }
 </style>

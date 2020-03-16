@@ -132,7 +132,12 @@ export default {
             console.log("[*] question_finished_mask looks weird: ", question_finished_mask)
             return
         }
-        if(confirm("你確定要選這題嗎? (選完這題, 在解完這題之前是不能換題的!)")){
+        if(this.$store.state.questionIndex != -1){
+            console.log("[*] This question have not yet finished, you cannot choose another question!")
+            return
+        }
+        // TODO: if question mask
+        if(question_finished_mask[index] === false && confirm("你確定要選這題嗎? (選完這題, 在解完這題之前是不能換題的!)")){
             // send this question index to the backend server
             console.log("[*] Sending selected index to the backend server")
             this.$store.dispatch("selectQuestion", {
