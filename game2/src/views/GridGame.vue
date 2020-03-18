@@ -1,15 +1,17 @@
 <template>
     <b-container>
         <b-row v-if="hasGridNumbers" class="justify-content-md-center">
-            <h1>我們的九宮格:</h1>
+            <b-col cols="12"><b-button @click="refetch">更新九宮格狀態</b-button></b-col>
+            <b-col cols="12"><hr></b-col>
+            <b-col cols="12"><h1>我們的九宮格:</h1></b-col>
         </b-row>
         <b-row v-if="hasGridNumbers" class="justify-content-md-center">
-            <h3>我們目前選的題目是: 第 {{ questionIndex }} 格(金黃色) (顯示 ? 代表你還沒選下一題) </h3> 
+            <h3>我們目前選的題目是: 第 {{ questionIndex }} 號(金黃色) (顯示 ? 代表你還沒選下一題) </h3> 
         </b-row>
         <b-row v-if="hasGridNumbers">
             <!-- add onclick to expand question -->
             <b-col class="slot" :class="{
-                    'question_index': index == $store.state.questionIndex,
+                    'question_index': index === $store.state.questionIndex,
                     'question_finished': $store.state.question_finished_mask[index]
                 }" cols="4" v-for="(number, index) in $store.state.gridNumbers" :key="number" @click="selectQuestion($event, index)">
                 {{ number }}
@@ -77,18 +79,16 @@ export default {
             return true
         }else return false
     },
-    question_index_class(){
-        if(this.$store.state.questionIndex != -1){
-            return "question_index"
-        }
-        return ""
-    },
     questionIndex(){
         let index = this.$store.state.questionIndex
         if(index == -1){
             return "?"
         }
-        return index + 1
+        let gridNumbers = this.$store.state.gridNumbers
+        if(gridNumbers === undefined || gridNumbers.length !== 9){
+            return "?"
+        }
+        return gridNumbers[index]
     }
   },
   methods: {
@@ -136,8 +136,9 @@ export default {
             console.log("[*] This question have not yet finished, you cannot choose another question!")
             return
         }
-        // TODO: if question mask
-        if(question_finished_mask[index] === false && confirm("你確定要選這題嗎? (選完這題, 在解完這題之前是不能換題的!)")){
+        let gridNumbers = this.$store.state.gridNumbers
+        // question_finished_mask[index] must be false
+        if(question_finished_mask[index] === false && confirm("你確定要選("+ gridNumbers[index] + ")號嗎? (選完這題, 在解完這題之前是不能換題的!)")){
             // send this question index to the backend server
             console.log("[*] Sending selected index to the backend server")
             this.$store.dispatch("selectQuestion", {
@@ -146,6 +147,10 @@ export default {
         }else{
             console.log("[!] Cancel selectQuestion function...")
         }
+    },
+    refetch(){
+        // refetch all information
+        this.$store.dispatch("getGridNumbers")
     }
   }
 }

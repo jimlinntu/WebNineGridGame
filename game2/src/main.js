@@ -18,10 +18,9 @@ Vue.use(BootstrapVueIcons)
 Vue.use(Grid)
 Vue.use(VueAxios, axios)
 // SocketIO
-// TODO: bug...
 Vue.use(new VueSocketIO({
     debug: true,
-    connection: SocketIO('http://125.227.38.80:17989', {transports: ['polling'], path: "/socket"}),
+    connection: SocketIO('http://125.227.38.80:17989', {transports: ['polling', 'websocket'], path: "/socket"}),
     vuex:{
         store,
         actionPrefix: 'SOCKET_',

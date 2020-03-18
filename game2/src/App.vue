@@ -1,14 +1,26 @@
 <template>
   <div id="app">
     <div id="nav">
-      <router-link to="/">Home</router-link> |
-      <router-link to="/about">About</router-link> |
-      <router-link to="/gridgame">GridGame</router-link> | 
-      <router-link to="/login">登入</router-link>
+      <router-link to="/about">關於</router-link> |
+      <router-link v-if="!isAdmin" to="/gridgame">九宮格遊戲</router-link> |
+      <router-link to="/login">登入/登出</router-link> |
+      <!-- (Soft block) Only allow admin to access this link-->
+      <router-link v-if="isAdmin" to="/admin">管理者介面</router-link>
     </div>
     <router-view/>
   </div>
 </template>
+
+<script>
+export default {
+    name: "App",
+    computed:{
+      isAdmin(){
+        return this.$store.state.auth_token.indexOf('admin') !== -1
+      }
+    }
+}
+</script>
 
 <style>
 #app {

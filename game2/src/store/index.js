@@ -24,6 +24,7 @@ export default new Vuex.Store({
       questionIndex: -1,
       question_finished_mask: [],
       answer: {}, // answer corresponding to current question
+      users: [],
   },
   mutations: {
       set_login_loading(state) {
@@ -57,6 +58,9 @@ export default new Vuex.Store({
             answertext: answertext,
             answerbase64str: answerbase64str,
           }
+      },
+      set_users_status(state, {users}){
+          state.users = users 
       }
   },
   actions: {
@@ -160,8 +164,42 @@ export default new Vuex.Store({
         }).catch((error)=>{
             console.log(error)
         })
+      },
+      // admininistrator can fetch all information
+      // (gridnumbers, question mask, question index, answertext, answerbase64str)
+      getAll(context){
+        Vue.axios.post(this.state.backend_url + "user/get_all", {
+            token: this.state.auth_token,
+        }).then((response)=>{
+            console.log(response)
+            context.commit("set_users_status", {
+                users: response.data.users
+            })
+            
+        }).catch((error)=>{
+            console.log(error)
+        })
+      },
+      approveAnswer(context, {target_account}){
+        Vue.axios.post(this.state.backend_url + "user/approve_answer",{
+            token: this.state.auth_token,
+            account: target_account,
+        }).then((response)=>{
+          console.log(response)
+        }).catch((error)=>{
+            console.log(error)
+        })
+      },
+      skipAnswer(context, {target_account}){
+        Vue.axios.post(this.state.backend_url + "user/skip_answer", {
+            token: this.state.auth_token,
+            account: target_account,
+        }).then((response)=>{
+            console.log(response)
+        }).catch((error)=>{
+            console.log(error)
+        })
       }
-
   },
   modules: {
   }

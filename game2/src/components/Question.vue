@@ -15,6 +15,7 @@
       </b-row>
       <hr>
       <b-row v-if="$store.state.question.description">
+        <b-col cols="12"><b-alert show variant="danger">照片 只能上傳 png 或是 jpg (jpeg) 格式唷!</b-alert></b-col>
         <b-col cols="12">
           <b-form-file v-model="answer.file" :state="Boolean(answer.file)" placeholder="請上傳照片"></b-form-file>
         </b-col>
@@ -28,7 +29,7 @@
       </b-row>
       <hr>
       <b-row class="text-center">
-        <b-col cols="12"><h4>之前已提交的內容為:</h4></b-col>
+        <b-col cols="12"><h4>之前已提交的答案為:</h4></b-col>
         <b-col cols="12"class="previous_answer">{{ getCurrentAnswer.answertext }} </b-col>
         <b-col cols="12"><img :src="getCurrentAnswer.answerbase64str"/></b-col>
       </b-row>

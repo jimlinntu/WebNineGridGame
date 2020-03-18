@@ -3,6 +3,7 @@ import VueRouter from 'vue-router'
 import Home from '../views/Home.vue'
 import GridGame from '../views/GridGame.vue'
 import Login from '../views/Login.vue'
+import Admin from '../views/Admin.vue'
 import store from '../store'
 
 Vue.use(VueRouter)
@@ -29,6 +30,21 @@ const routes = [
         if(store.state.auth_token){
             // TODO: Fetch grid numbers, questions and index from the backend server
             store.dispatch("getGridNumbers")
+            next()
+            return
+        }
+        alert("請先登入!")
+        // redirect it to login page
+        next("/login")
+    }
+  },
+  {
+    path: '/admin',
+    name: 'Admin',
+    component: Admin,
+    beforeEnter: (to, from, next) =>{
+        // TODO: How to verify this user is an admin
+        if(store.state.auth_token){
             next()
             return
         }
