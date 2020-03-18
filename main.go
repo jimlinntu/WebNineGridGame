@@ -12,7 +12,6 @@ import (
     "log"
     "time"
     "context"
-    "net/http"
     "github.com/gin-gonic/gin"
     "github.com/gin-gonic/gin/binding"
     "github.com/gin-contrib/cors"
@@ -22,12 +21,18 @@ import (
     "go.mongodb.org/mongo-driver/mongo/options"
     "go.mongodb.org/mongo-driver/mongo/readpref"
     "github.com/googollee/go-socket.io"
+    "github.com/googollee/go-engine.io"
+    "net/http"
+    "github.com/googollee/go-engine.io/transport/polling"
+    "github.com/googollee/go-engine.io/transport/websocket"
+    "github.com/googollee/go-engine.io/transport"
     // "io/ioutil"
 )
 
 var databaseName = "WebNineGameDB"
 var notfound = "Page Not Found"
 var DATA_FOLDER = "./data"
+var ADMIN = "admin"
 
 // A team is a user, admin is also a user
 type User struct {
@@ -68,9 +73,8 @@ func destroyMongoClient(client *mongo.Client) {
     fmt.Println("[*] Client Destruction Success!")
 }
 
-func createDatabaseCollection (client *mongo.Client, to_clear_collection bool) (*mongo.Collection, *mongo.Collection){
+func createDatabaseCollection (client *mongo.Client, to_clear_collection bool) (*mongo.Collection){
     collection := client.Database(databaseName).Collection("users")
-    question_collection := client.Database(databaseName).Collection("questions")
     // Clear all users
     if to_clear_collection {
         log.Printf("[*] Clearing collections")
@@ -79,12 +83,12 @@ func createDatabaseCollection (client *mongo.Client, to_clear_collection bool) (
             log.Fatal(err)
         }
     }
-    return collection, question_collection
+    return collection
 }
 
 func initialize_users(collection *mongo.Collection, max_team int){
     team_prefix := "team"
-    admin := "admin"
+    admin := ADMIN
 
     // Set username
     for i := 1; i <= max_team; i++ {
@@ -276,8 +280,116 @@ func (user *User) updateQuestionIndex(collection *mongo.Collection) bool{
     return true
 }
 
+// Admin gets all information
+func getAll(collection *mongo.Collection) ([]*User, bool){
+    var users []*User
+    filter := bson.D{
+        {
+            "account", bson.D{{"$ne", ADMIN}}, // account should not be equal to ADMIN
+        },
+    }
+    cursor, err := collection.Find(context.TODO(), filter)
+    if err != nil {
+        log.Printf("Somethings went wrong in getAll()")
+        return nil, false
+    }
+    for cursor.Next(context.TODO()){
+        var user User
+        cursor.Decode(&user)
+        if user.GridNumbers == nil {
+            user.GridNumbers = make([]int, 0) // avoid gin.H empty slice bug
+        }
+        // append that user's memory address
+        users = append(users, &user)
+    }
+    return users, true
+}
+
+// https://github.com/simagix/mongo-go-examples/blob/master/examples/transaction_test.go
+func approve_answer(user_account string, collection *mongo.Collection) bool{
+    // Find questionindex != -1 and update it to 1 (act as a lock)
+    var user User
+    filter := bson.D{
+        {"account", user_account},
+        {"questionindex", bson.D{{"$ne", -1}}}, // to be approved answer cannot be -1!
+    }
+    update := bson.D{
+        {"$set", bson.D{
+            {"questionindex", -1},
+        }}, // reset questionindex to -1
+    }
+    // NOTE: Even if two processes race into this line, it will only be one process succeeded!
+    // (Because one process must first change questionindex to -1!)
+    err := collection.FindOneAndUpdate(context.TODO(), filter, update).Decode(&user)
+    // If this operation failed, it means it is a race condition,
+    // we give up the below updating question_finished_mask operation
+    if err != nil{
+        log.Printf("[*] FindOneAndUpdate in approve_answer failed!")
+        return false
+    }
+    if user.QuestionIndex == -1 {
+        log.Printf("[*] It is weird.... this should not happen in approve_answer function")
+        return false
+    }
+    // Update question_finished_mask
+    filter = bson.D{
+        {"account", user_account},
+    }
+    update = bson.D{
+        {"$set", bson.D{
+            {"questionfinishedmask." + strconv.Itoa(user.QuestionIndex), true}, // mark that question as solved!
+            {"answertext", ""},
+            {"answerbase64str", ""},
+        },
+        },
+    }
+    if err = collection.FindOneAndUpdate(context.TODO(), filter, update).Err(); err != nil{
+        return false
+    }
+    return true
+}
+
+func skip_answer(user_account string, collection *mongo.Collection) bool{
+    // Set this account's questionindex to -1
+    filter := bson.D{
+        {"account", user_account},
+        {"questionindex", bson.D{
+            {"$ne", -1}, // qidx should not be -1!
+        }},
+    }
+    update := bson.D{
+        {"$set", bson.D{
+            {"questionindex", -1},
+            {"answertext", ""},
+            {"answerbase64str", ""},
+        }},
+    }
+    if err := collection.FindOneAndUpdate(context.TODO(), filter, update).Err(); err != nil{
+        log.Printf("[*] Skip %s's question failed!", user_account)
+        return false
+    }
+    return true
+}
+
+// https://github.com/googollee/go-socket.io/issues/194#issuecomment-481234861
+func generateEngineOptions() *engineio.Options{
+    poll_transport := polling.Default
+    websocket_transport := websocket.Default
+    websocket_transport.CheckOrigin = func(req *http.Request) bool{
+        return true
+    }
+    options := engineio.Options{
+        Transports: []transport.Transport{
+            poll_transport,
+            websocket_transport,
+        },
+    }
+    return &options
+}
+
 func initialize_socket_io() (*socketio.Server){
-    server, err := socketio.NewServer(nil)
+    options := generateEngineOptions()
+    server, err := socketio.NewServer(options)
     if err != nil {
         log.Fatal(err)
     }
@@ -343,7 +455,7 @@ func main(){
     rand.Seed(115813)
     // 
     client := createMongoClient()
-    user_collection, _ := createDatabaseCollection(client, to_clear_collection == "true")
+    user_collection := createDatabaseCollection(client, to_clear_collection == "true")
     if to_clear_collection == "true" {
         initialize_users(user_collection, 10)
     }
@@ -487,7 +599,7 @@ func main(){
                         "questionIndex": user.QuestionIndex,
                         "question": gin.H{
                             "description": questions[user.GridNumbers[user.QuestionIndex]-1].Description,
-                            "image": questions[user.GridNumbers[user.QuestionIndex]].Base64Image,
+                            "image": questions[user.GridNumbers[user.QuestionIndex]-1].Base64Image,
                         },
                     })
                 }else{
@@ -496,6 +608,65 @@ func main(){
             }else{
                 c.String(http.StatusNotAcceptable, "Select question fail!")
             }
+        })
+
+        // (Admin) get all information
+        private_router.POST("/get_all", func(c *gin.Context){
+            account, _ := c.MustGet("account").(string)
+            if account != ADMIN{
+                c.String(http.StatusNotAcceptable, "You are not admin! Get out!")
+                return
+            }
+            users, success := getAll(user_collection)
+            if !success {
+                c.String(http.StatusNotAcceptable, "getAll() failed")
+                return
+            }
+
+            c.JSON(http.StatusOK, gin.H{
+                "users": users,
+            })
+            return
+        })
+        // (Admin) approve this answer
+        private_router.POST("/approve_answer", func(c *gin.Context){
+            account, _ := c.MustGet("account").(string)
+            if account != ADMIN {
+                c.String(http.StatusNotAcceptable, "You are not admin! Get out!")
+                return
+            }
+            var target_user User
+            if c.ShouldBindBodyWith(&target_user, binding.JSON) != nil{
+                c.String(http.StatusNotAcceptable, "[!] c.ShouldBindBodyWith failed!")
+                return
+            }
+            fmt.Printf("target_user account: %s\n", target_user.Account)
+            if success := approve_answer(target_user.Account, user_collection); !success{
+                c.String(http.StatusNotAcceptable, "[!] approve_answer failed!")
+                return
+            }
+            c.String(http.StatusOK, "[*] Update question finished mask succeeded!")
+            return
+        })
+        // (Admin) skip this team's question
+        private_router.POST("/skip_answer", func(c *gin.Context){
+            account, _ := c.MustGet("account").(string)
+            if account != ADMIN {
+                c.String(http.StatusNotAcceptable, "You are not admin! Get out!")
+                return
+            }
+            var target_user User
+            if c.ShouldBindBodyWith(&target_user, binding.JSON) != nil{
+                c.String(http.StatusNotAcceptable, "[!] c.ShouldBindBodyWith failed!")
+                return
+            }
+            fmt.Printf("target_user account: %s\n", target_user.Account)
+            if success := skip_answer(target_user.Account, user_collection); !success{
+                c.String(http.StatusNotAcceptable, "[!] skip_answer failed!")
+                return
+            }
+            c.String(http.StatusOK, "[*] Skipping that question succeeded!")
+            return
         })
     }
 
