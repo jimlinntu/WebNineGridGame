@@ -3,17 +3,6 @@ import Vuex from 'vuex'
 
 Vue.use(Vuex)
 
-function getBase64(file){
-  let reader = new FileReader();
-  reader.readAsDataURL(file);
-  reader.onload = function (){
-    console.log(reader.result)
-  };
-  reader.onerror = function (error){
-    console.log("Error: ", error)
-  };
-}
-
 export default new Vuex.Store({
   state: {
       backend_url: "http://125.227.38.80:17989/",
@@ -36,6 +25,10 @@ export default new Vuex.Store({
       },
       set_login_fail(state) {
           state.auth_status = "登入失敗"
+      },
+      set_logout(state){
+          state.auth_status = "已登出"
+          state.auth_token = "" // clear the authentication token
       },
       set_grid_numbers_and_questions_and_answer(state, {gridNumbers, questionIndex, 
                                              question_finished_mask, question,
@@ -68,7 +61,7 @@ export default new Vuex.Store({
           context.commit("set_login_loading")
 
           // perform asynchronous backend authentication
-          Vue.axios.post(this.state.backend_url + "auth",{
+          Vue.axios.post(this.state.backend_url + "api/auth",{
                 account: account,
                 password: password
               }
@@ -81,6 +74,9 @@ export default new Vuex.Store({
               console.log(error)
               context.commit("set_login_fail")
           })
+      },
+      logout(context){
+        context.commit("set_logout")
       },
       submitGridNumbers(context, {gridNumbers}){
         // post gridNumbers to the backend server
@@ -176,6 +172,16 @@ export default new Vuex.Store({
                 users: response.data.users
             })
             
+        }).catch((error)=>{
+            console.log(error)
+        })
+      },
+      // reset all teams' gridnumbers
+      resetAll(context){
+        Vue.axios.post(this.state.backend_url + "user/reset_all", {
+            token: this.state.auth_token,
+        }).then((response)=>{
+            console.log(response)
         }).catch((error)=>{
             console.log(error)
         })

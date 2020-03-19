@@ -17,6 +17,8 @@
         </b-form>
       </b-row>
       <p>登入狀態: {{ status }} </p>
+      <!-- if the authentication token is evaluated true, show logout button-->
+      <b-button v-if="$store.state.auth_token" @click="logout">登出</b-button>
     </b-container>
 </template>
 
@@ -42,6 +44,13 @@ export default {
         account: account,
         password: password
       })
+      // Clear loginForm
+      this.loginForm.account = ''
+      this.loginForm.password = ''
+    },
+    logout(evt){
+      console.log("[*] User trys to log out...") 
+      this.$store.dispatch("logout")
     }
   },
   computed: {

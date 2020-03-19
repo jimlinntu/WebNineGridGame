@@ -18,15 +18,17 @@ Vue.use(BootstrapVueIcons)
 Vue.use(Grid)
 Vue.use(VueAxios, axios)
 // SocketIO
-Vue.use(new VueSocketIO({
-    debug: true,
-    connection: SocketIO('http://125.227.38.80:17989', {transports: ['polling', 'websocket'], path: "/socket"}),
-    vuex:{
-        store,
-        actionPrefix: 'SOCKET_',
-        mutationPrefix: 'SOCKET_'
-    },
-}))
+if(false){
+    Vue.use(new VueSocketIO({
+        debug: true,
+        connection: SocketIO('http://125.227.38.80:17989', {transports: ['polling', 'websocket'], path: "/socket_api/socket"}),
+        vuex:{
+            store,
+            actionPrefix: 'SOCKET_',
+            mutationPrefix: 'SOCKET_'
+        },
+    }))
+}
 Vue.config.productionTip = false
 
 new Vue({

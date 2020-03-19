@@ -10,12 +10,12 @@
       <hr>
       <b-row v-if="$store.state.question.description">
         <b-col cols="12">
-          <b-form-input v-model="answer.text" placeholder="請輸入答案"></b-form-input>
+          <b-form-input ref="input" v-model="answer.text" placeholder="請輸入答案"></b-form-input>
         </b-col>
       </b-row>
       <hr>
       <b-row v-if="$store.state.question.description">
-        <b-col cols="12"><b-alert show variant="danger">照片 只能上傳 png 或是 jpg (jpeg) 格式唷!</b-alert></b-col>
+        <b-col cols="12"><b-alert show variant="danger">照片 只能上傳 png 或是 jpg (jpeg) 格式唷!(如果底下有正確顯示就可以了)</b-alert></b-col>
         <b-col cols="12">
           <b-form-file v-model="answer.file" :state="Boolean(answer.file)" placeholder="請上傳照片"></b-form-file>
         </b-col>
@@ -76,7 +76,7 @@ export default {
     }
   },
   methods:{
-    async submitAnswer(){
+    async submitAnswer(evt){
       // questionIndex must not be -1
       console.log("[*] Submit questionIndex == : ", this.$store.state.questionIndex)
       if(this.$store.state.questionIndex === -1){
@@ -93,6 +93,8 @@ export default {
       })
       // Reset file to null
       this.answer.file = null
+      // Reset text
+      this.answer.text = ""
     }
   }
 }

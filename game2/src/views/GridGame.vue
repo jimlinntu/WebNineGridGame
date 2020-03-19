@@ -62,7 +62,7 @@ export default {
   data () {
     let unselectedNumbers = []
     let slots = []
-    for(let i = 0; i < 15; i++){
+    for(let i = 0; i < 20; i++){
       unselectedNumbers.push(i+1);
     }
     for(let i = 0; i < 9; i++){
