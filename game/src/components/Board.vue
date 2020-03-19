@@ -12,6 +12,8 @@
     <b-col cols="12" v-if="gridNumbers.length === 0">
       <b-alert show>該組別尚未上傳九宮格</b-alert>
     </b-col>
+    <b-col v-if="question !== null" cols="12"><h3>問題: {{ question.description }} </h3></b-col>
+    <b-col v-if="question !== null" cols="12"><img class="smaller_img" :src="'data:image/png;base64, '+ question.base64image"/></b-col>
     <b-col cols="12"><h3>當前該組回答: </h3></b-col>
     <b-col cols="12">答案: {{ answertext }}</b-col>
     <b-col cols="12"><img :src="answerbase64str"/></b-col>
@@ -23,7 +25,7 @@
 export default {
   name: "Board",
   props: ['team', 'gridNumbers', 'questionIndex', 'question_finished_mask', 
-          'answertext', 'answerbase64str'],
+          'answertext', 'answerbase64str', 'question'],
   data(){
     return {
     }
@@ -60,6 +62,10 @@ export default {
 img {
   width: 70%;
   height: auto;
+}
+
+.smaller_img {
+  width: 40%;
 }
 
 </style>

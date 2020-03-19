@@ -14,6 +14,7 @@ export default new Vuex.Store({
       question_finished_mask: [],
       answer: {}, // answer corresponding to current question
       users: [],
+      questions: [],
   },
   mutations: {
       set_login_loading(state) {
@@ -52,8 +53,9 @@ export default new Vuex.Store({
             answerbase64str: answerbase64str,
           }
       },
-      set_users_status(state, {users}){
+      set_users_status(state, {users, questions}){
           state.users = users 
+          state.questions = questions
       }
   },
   actions: {
@@ -169,7 +171,8 @@ export default new Vuex.Store({
         }).then((response)=>{
             console.log(response)
             context.commit("set_users_status", {
-                users: response.data.users
+                users: response.data.users,
+                questions: response.data.questions
             })
             
         }).catch((error)=>{

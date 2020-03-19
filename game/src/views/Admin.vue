@@ -14,11 +14,12 @@
         <Board :team="user.account" 
               :gridNumbers="user.gridnumbers" :questionIndex="user.questionindex"
               :question_finished_mask="user.questionfinishedmask"
-              :answertext="user.answertext" :answerbase64str="user.answerbase64str">
+              :answertext="user.answertext" :answerbase64str="user.answerbase64str"
+              :question="questions[index]">
         </Board>
         <hr>
         <!-- User must have answer some texts or attached an image -->
-        <b-row v-if="user.answertext || user.answerbase64str">
+        <b-row v-if="(user.answertext || user.answerbase64str) && questions[index] !== null">
             <b-col cols="6"><b-button variant="primary" size="lg" @click="approve($event, user)">核准</b-button></b-col>
             <b-col cols="6"><b-button variant="danger" size="lg" @click="skip($event, user)">跳題</b-button></b-col>
         </b-row>
@@ -74,6 +75,9 @@ export default {
   computed: {
     users(){
       return this.$store.state.users
+    },
+    questions(){
+      return this.$store.state.questions
     }
   }
 }
