@@ -103,6 +103,7 @@ func initialize_users(collection *mongo.Collection, max_team int){
         user := User{
             Account: account,
             Password: password,
+            QuestionIndex : -1,
         }
         _, err := f.WriteString(account + " " + password + "\n")
         if err != nil{
@@ -296,8 +297,9 @@ func (user *User) updateQuestionIndex(collection *mongo.Collection) bool{
 }
 
 // Admin gets all information
-func getAll(collection *mongo.Collection) ([]*User, bool){
+func getAll(collection *mongo.Collection, questions []Question) ([]*User, []*Question, bool){
     var users []*User
+    var chosen_questions []*Question
     filter := bson.D{
         {
             "account", bson.D{{"$ne", ADMIN}}, // account should not be equal to ADMIN
@@ -306,7 +308,7 @@ func getAll(collection *mongo.Collection) ([]*User, bool){
     cursor, err := collection.Find(context.TODO(), filter)
     if err != nil {
         log.Printf("Somethings went wrong in getAll()")
-        return nil, false
+        return nil, nil, false
     }
     for cursor.Next(context.TODO()){
         var user User
@@ -316,8 +318,14 @@ func getAll(collection *mongo.Collection) ([]*User, bool){
         }
         // append that user's memory address
         users = append(users, &user)
+        if user.QuestionIndex != -1 && user.GridNumbers != nil{
+            chosen_questions = append(chosen_questions, &questions[user.GridNumbers[user.QuestionIndex]-1]) // return that question's memory address
+        }else{
+            chosen_questions = append(chosen_questions, nil) // append nil
+        }
     }
-    return users, true
+    // Get each user's corresponding question
+    return users, chosen_questions, true
 }
 
 func resetAll(collection *mongo.Collection) bool{
@@ -662,7 +670,7 @@ func main(){
                 c.String(http.StatusNotAcceptable, "You are not admin! Get out!")
                 return
             }
-            users, success := getAll(user_collection)
+            users, chosen_questions, success := getAll(user_collection, questions)
             if !success {
                 c.String(http.StatusNotAcceptable, "getAll() failed")
                 return
@@ -670,6 +678,7 @@ func main(){
 
             c.JSON(http.StatusOK, gin.H{
                 "users": users,
+                "questions":chosen_questions,
             })
             return
         })
