@@ -15,6 +15,7 @@ import (
     "github.com/gin-gonic/gin"
     "github.com/gin-gonic/gin/binding"
     "github.com/gin-contrib/cors"
+    "github.com/gin-contrib/static"
     "fmt"
     "go.mongodb.org/mongo-driver/bson"
     "go.mongodb.org/mongo-driver/mongo"
@@ -26,7 +27,6 @@ import (
     "github.com/googollee/go-engine.io/transport/polling"
     "github.com/googollee/go-engine.io/transport/websocket"
     "github.com/googollee/go-engine.io/transport"
-    // "io/ioutil"
 )
 
 var databaseName = "WebNineGameDB"
@@ -89,16 +89,27 @@ func createDatabaseCollection (client *mongo.Client, to_clear_collection bool) (
 func initialize_users(collection *mongo.Collection, max_team int){
     team_prefix := "team"
     admin := ADMIN
+    // Write to the file
+    f, err := os.Create("./account.txt")
+    if err != nil{
+        log.Fatal(err)
+    }
+    defer f.Close()
 
     // Set username
     for i := 1; i <= max_team; i++ {
         password := team_prefix + strconv.Itoa(i) + strconv.Itoa(rand.Intn(10000))
+        account := team_prefix + strconv.Itoa(i)
         user := User{
-            Account: team_prefix + strconv.Itoa(i),
+            Account: account,
             Password: password,
         }
+        _, err := f.WriteString(account + " " + password + "\n")
+        if err != nil{
+            log.Fatal(err)
+        }
         // Insert it into the collection
-        _, err := collection.InsertOne(context.TODO(), user)
+        _, err = collection.InsertOne(context.TODO(), user)
         if err != nil {
             log.Fatal(err)
         }else{
@@ -111,7 +122,11 @@ func initialize_users(collection *mongo.Collection, max_team int){
             Account: admin,
             Password: password,
     }
-    _, err := collection.InsertOne(context.TODO(), user)
+    _, err = f.WriteString(admin + " " + password + "\n")
+    if err != nil{
+        log.Fatal(err)
+    }
+    _, err = collection.InsertOne(context.TODO(), user)
     if err != nil {
         log.Fatal(err)
     }else{
@@ -305,6 +320,27 @@ func getAll(collection *mongo.Collection) ([]*User, bool){
     return users, true
 }
 
+func resetAll(collection *mongo.Collection) bool{
+    // reset GridNumbers
+    filter := bson.D{
+        {"account", bson.D{{"$ne", ADMIN}}},
+    }
+    update := bson.D{
+        {"$set", bson.D{
+                {"gridnumbers", nil},
+                {"questionindex", -1},
+                {"questionfinishedmask", nil},
+                {"answertext", ""},
+                {"answerbase64str", ""},
+            },
+        },
+    }
+    if result, err := collection.UpdateMany(context.TODO(), filter, update); err != nil || result.MatchedCount == 0{
+        return false
+    }
+    return true
+}
+
 // https://github.com/simagix/mongo-go-examples/blob/master/examples/transaction_test.go
 func approve_answer(user_account string, collection *mongo.Collection) bool{
     // Find questionindex != -1 and update it to 1 (act as a lock)
@@ -467,13 +503,22 @@ func main(){
 
     router := gin.Default()
     config := cors.DefaultConfig()
-    config.AllowOrigins = []string{"http://localhost:8080"}
+    config.AllowAllOrigins = true
+    if false{
+        config.AllowOrigins = []string{"http://localhost:8080"}
+    }
     config.AllowCredentials = true
 
     router.Use(cors.New(config))
-    // Socket initialization
-    router.GET("/socket/", gin.WrapH(server))
-    router.POST("/socket/", gin.WrapH(server))
+    // Serve static file: https://github.com/gin-gonic/gin/issues/75#issuecomment-223592440
+    router.Use(static.Serve("/", static.LocalFile("./dist", true)))
+
+    socket_router := router.Group("/socket_api")
+    {
+        // Socket initialization
+        socket_router.GET("/socket/", gin.WrapH(server))
+        socket_router.POST("/socket/", gin.WrapH(server))
+    }
 
     private_router := router.Group("/user")
     private_router.Use(check_authentication(user_collection))
@@ -628,6 +673,18 @@ func main(){
             })
             return
         })
+        private_router.POST("/reset_all", func(c *gin.Context){
+            account, _ := c.MustGet("account").(string)
+            if account != ADMIN{
+                c.String(http.StatusNotAcceptable, "You are not admin! Get out!")
+                return
+            }
+            if success := resetAll(user_collection); !success{
+                c.String(http.StatusNotAcceptable, "resetAll() failed")
+            }
+            c.String(http.StatusOK, "reset_all route succeeded!")
+            return
+        })
         // (Admin) approve this answer
         private_router.POST("/approve_answer", func(c *gin.Context){
             account, _ := c.MustGet("account").(string)
@@ -670,32 +727,28 @@ func main(){
         })
     }
 
-    router.GET("/ping", func(c *gin.Context){
-        c.JSON(200, gin.H{
-            "message": "pong",
-        })
-    })
-
     // Perform authentication
-    // TODO
-    router.POST("/auth", func(c *gin.Context){
-        var user User
-        if c.ShouldBindJSON(&user) == nil{
-            log.Printf("[*] Verifying account: %s, password: %s\n", user.Account, user.Password)
-            success := user.findUser(user_collection)
-            if !success {
-                c.String(http.StatusNotAcceptable, "This account is not found")
+    api_router := router.Group("/api")
+    {
+        api_router.POST("/auth", func(c *gin.Context){
+            var user User
+            if c.ShouldBindJSON(&user) == nil{
+                log.Printf("[*] Verifying account: %s, password: %s\n", user.Account, user.Password)
+                success := user.findUser(user_collection)
+                if !success {
+                    c.String(http.StatusNotAcceptable, "This account is not found")
+                }
+                c.JSON(http.StatusOK, gin.H{
+                    "account": user.Account,
+                    "password": user.Password,
+                    "token": user.Password,
+                })
+            }else{
+                c.String(http.StatusNotFound, "Page Not Found")
             }
-            c.JSON(http.StatusOK, gin.H{
-                "account": user.Account,
-                "password": user.Password,
-                "token": user.Password,
-            })
-        }else{
-            c.String(http.StatusNotFound, "Page Not Found")
-        }
-        return
-    })
+            return
+        })
+    }
     router.Run("0.0.0.0:80")
     destroyMongoClient(client)
 }
