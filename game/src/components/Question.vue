@@ -1,7 +1,7 @@
 <template>
     <b-container class="fluid">
-      <b-row class="justify-content-md-center">
-        <h1>問題<b-icon-question></b-icon-question></h1>
+      <b-row>
+        <b-col cols="12"><h1>問題<b-icon-question></b-icon-question></h1></b-col>
       </b-row>
       <b-row class="text-center">
         <b-col cols="12" v-if="$store.state.question.description"><h3> {{ $store.state.question.description }} </h3></b-col>

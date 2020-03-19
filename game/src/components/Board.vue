@@ -39,18 +39,22 @@ export default {
 
 .gold_color {
     color: rgb(255,165,0);
+    background-color: rgb(255, 165, 0);
 }
 
 .green_color {
     color: rgb(0, 128, 0);
+    background-color: rgb(0, 128, 0);
 }
 
 .question_index{
     color: rgb(255,165,0);
+    background-color: rgb(255, 165, 0, 0.3);
 }
 
 .question_finished{
     color: rgb(0, 128, 0);
+    background-color: rgb(0, 128, 0, 0.3);
 }
 
 img {

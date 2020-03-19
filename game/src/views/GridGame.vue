@@ -21,8 +21,8 @@
         <Question v-if="hasGridNumbers"></Question>
 
         <!---->
-        <b-row v-if=!hasGridNumbers class="justify-content-md-center">
-            <h1>請填入以下九宮格:</h1>
+        <b-row v-if=!hasGridNumbers class="text-center">
+            <b-col cols="12"><h1>請填入九宮格:</h1></b-col>
         </b-row>
         <b-row v-if="!hasGridNumbers">
             <b-col class="slot" cols="4" v-for="i in 9" :key="i">
@@ -33,8 +33,8 @@
             </b-col>
         </b-row>
         <hr v-if="!hasGridNumbers">
-        <b-row v-if="!hasGridNumbers" class="justify-content-md-center">
-            <h1>候選數字:</h1>
+        <b-row v-if="!hasGridNumbers">
+            <b-col cols="12"><h1>候選數字:</h1></b-col>
         </b-row>
         <b-row v-if="!hasGridNumbers">
             <draggable v-model="unselectedNumbers" group="people" class="unselected_draggable_numbers"
@@ -43,8 +43,8 @@
             </draggable>
         </b-row>
         <hr v-if="!hasGridNumbers">
-        <b-row v-if="!hasGridNumbers" class="justify-content-md-center">
-            <b-button size="lg" @click.prevent="submitNineGrids">提交九宮格</b-button>
+        <b-row v-if="!hasGridNumbers">
+            <b-col cols="12"><b-button size="lg" @click.prevent="submitNineGrids">提交九宮格</b-button></b-col>
         </b-row>
     </b-container>
 </template>
@@ -132,7 +132,7 @@ export default {
             console.log("[*] question_finished_mask looks weird: ", question_finished_mask)
             return
         }
-        if(this.$store.state.questionIndex != -1){
+        if(this.$store.state.questionIndex !== -1){
             console.log("[*] This question have not yet finished, you cannot choose another question!")
             return
         }
@@ -190,10 +190,12 @@ export default {
 
 .question_index{
     color: rgb(255,165,0);
+    background-color: rgb(255, 165, 0, 0.3);
 }
 
 .question_finished{
     color: rgb(0, 128, 0);
+    background-color: rgb(0, 128, 0, 0.3);
 }
 
 </style>
