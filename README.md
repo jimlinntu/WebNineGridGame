@@ -12,4 +12,33 @@ Vue (./game -> ./dist) <-> Golang (main.go) <-> MongoDB
 ```
 
 ## Demo
-TODO
+
+* About
+![about](./demo/about.png)
+
+* Login
+![login](./demo/login.png)
+
+* Login Success
+![login\_success](./demo/login_success.png)
+
+* User Drag-and-drop Interative Interface
+![dnd](./demo/drag-n-drop.png)
+
+* User Question Selection
+![user_selection](./demo/question-selection.png)
+
+* User Question Answering
+![user_answering](./demo/question-answering.png)
+
+* Admin Management Page
+![admin](./demo/admin_page.png)
+
+* Admin Approval or Rejection Page
+![admin_approval](./demo/admin_page_2.png)
+
+* Admin Teams' Status Page
+![admin_team_status](./demo/admin_page_3.png)
+
+* User Question Passed
+![user_passed](./demo/user-answer-passed.png)
