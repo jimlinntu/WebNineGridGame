@@ -18,10 +18,14 @@
               :question="questions[index]">
         </Board>
         <hr>
+        <!--<RejectStatus v-if="questions[index] !== null" :isrejected="isrejecteds[index]"></RejectStatus>-->
+        <RejectStatus v-if="questions[index] !== null" :isrejected="isrejecteds[index]"></RejectStatus>
+        <hr>
         <!-- User must have answer some texts or attached an image -->
         <b-row v-if="(user.answertext || user.answerbase64str) && questions[index] !== null">
-            <b-col cols="6"><b-button variant="primary" size="lg" @click="approve($event, user)">核准</b-button></b-col>
-            <b-col cols="6"><b-button variant="danger" size="lg" @click="skip($event, user)">跳題</b-button></b-col>
+            <b-col cols="4"><b-button variant="primary" size="lg" @click="approve($event, user)">核准</b-button></b-col>
+            <b-col cols="4"><b-button variant="danger" size="lg" @click="skip($event, user)">跳題</b-button></b-col>
+            <b-col cols="4"><b-button size="lg" @click="reject($event, user)">此題回答錯誤</b-button></b-col>
         </b-row>
         <hr>
     </template>
@@ -30,11 +34,13 @@
 
 <script>
 import Board from '@/components/Board'
+import RejectStatus from '@/components/RejectStatus'
 
 export default {
   name: "Admin",
   components: {
     Board,
+    RejectStatus
   },
   data(){
     return {
@@ -60,6 +66,9 @@ export default {
       this.$store.dispatch("approveAnswer", {
         target_account: user.account,
       })
+
+      // Refresh this admin page
+      this.getAll()
     },
     skip(evt, user){
       if(!confirm("確定要讓" + user.account + "跳題嗎?")){
@@ -70,6 +79,22 @@ export default {
       this.$store.dispatch("skipAnswer", {
         target_account: user.account,
       })
+
+      // Refresh this admin page
+      this.getAll()
+    },
+    reject(evt, user){
+      if(!confirm("確定要拒絕 " + user.account + "的回答嗎?")){
+        console.log("[*] 取消拒絕")
+        return
+      }
+      console.log("[*] Reject " + user.account + "'s answer")
+      this.$store.dispatch("rejectAnswer", {
+        target_account: user.account,
+      })
+
+      // Refresh this admin page
+      this.getAll()
     }
   },
   computed: {
@@ -78,6 +103,9 @@ export default {
     },
     questions(){
       return this.$store.state.questions
+    },
+    isrejecteds(){
+      return this.$store.state.isrejecteds
     }
   }
 }

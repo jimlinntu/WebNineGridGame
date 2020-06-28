@@ -11,10 +11,12 @@ export default new Vuex.Store({
       gridNumbers: [], // grid numbers retrieve from backend
       question: {}, // question = {description: ..., image: ...}
       questionIndex: -1,
+      isrejected: null,
       question_finished_mask: [],
       answer: {}, // answer corresponding to current question
       users: [],
       questions: [],
+      isrejecteds: [],
   },
   mutations: {
       set_login_loading(state) {
@@ -33,9 +35,10 @@ export default new Vuex.Store({
       },
       set_grid_numbers_and_questions_and_answer(state, {gridNumbers, questionIndex, 
                                              question_finished_mask, question,
-                                             answertext, answerbase64str}){
+                                             answertext, answerbase64str, isrejected}){
           state.gridNumbers = gridNumbers
           state.questionIndex = questionIndex
+          state.isrejected = isrejected
           state.question_finished_mask = question_finished_mask
           state.question = question
           state.answer = {
@@ -47,15 +50,17 @@ export default new Vuex.Store({
           state.questionIndex = questionIndex
           state.question = question
       },
-      set_answer(state, {answertext, answerbase64str}){
+      set_answer(state, {answertext, answerbase64str, isrejected}){
+          state.isrejected = isrejected
           state.answer = {
             answertext: answertext,
             answerbase64str: answerbase64str,
           }
       },
-      set_users_status(state, {users, questions}){
+      set_users_status(state, {users, questions, isrejecteds}){
           state.users = users 
           state.questions = questions
+          state.isrejecteds = isrejecteds
       }
   },
   actions: {
@@ -94,7 +99,8 @@ export default new Vuex.Store({
                     question_finished_mask: response.data.question_finished_mask,
                     question: {}, // there is no question
                     answertext: "", // there is no answer yet been submitted
-                    answerbase64str: "" // there is no answer yet been submitted
+                    answerbase64str: "", // there is no answer yet been submitted
+                    isrejected: response.data.isrejected,
                 })
                 
             }).catch((error)=>{
@@ -114,7 +120,8 @@ export default new Vuex.Store({
                 question_finished_mask: response.data.question_finished_mask,
                 question: response.data.question,
                 answertext: response.data.answertext,
-                answerbase64str: response.data.answerbase64str
+                answerbase64str: response.data.answerbase64str,
+                isrejected: response.data.isrejected
             })
 
         }).catch((error)=>{
@@ -142,7 +149,8 @@ export default new Vuex.Store({
             // TODO: set current answer
             context.commit("set_answer", {
                 answertext: response.data.answertext,
-                answerbase64str: response.data.answerbase64str
+                answerbase64str: response.data.answerbase64str,
+                isrejected: response.data.isrejected
             })
         }).catch((error)=>{
             console.log(error)
@@ -172,7 +180,8 @@ export default new Vuex.Store({
             console.log(response)
             context.commit("set_users_status", {
                 users: response.data.users,
-                questions: response.data.questions
+                questions: response.data.questions,
+                isrejecteds: response.data.isrejecteds
             })
             
         }).catch((error)=>{
@@ -201,6 +210,16 @@ export default new Vuex.Store({
       },
       skipAnswer(context, {target_account}){
         Vue.axios.post(this.state.backend_url + "user/skip_answer", {
+            token: this.state.auth_token,
+            account: target_account,
+        }).then((response)=>{
+            console.log(response)
+        }).catch((error)=>{
+            console.log(error)
+        })
+      },
+      rejectAnswer(context, {target_account}){
+        Vue.axios.post(this.state.backend_url + "user/reject_answer", {
             token: this.state.auth_token,
             account: target_account,
         }).then((response)=>{

@@ -33,10 +33,14 @@
         <b-col cols="12"class="previous_answer">{{ getCurrentAnswer.answertext }} </b-col>
         <b-col cols="12"><img :src="getCurrentAnswer.answerbase64str"/></b-col>
       </b-row>
+      <hr>
+      <RejectStatus :isrejected="$store.state.isrejected"></RejectStatus>
     </b-container>
 </template>
 
 <script>
+
+import RejectStatus from '@/components/RejectStatus'
 
 function getBase64(file) {
   return new Promise((resolve, reject) => {
@@ -49,6 +53,9 @@ function getBase64(file) {
 
 export default {
   name: "Question",
+  components: {
+    RejectStatus,
+  },  
   data(){
     return {
       answer: {
