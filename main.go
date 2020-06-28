@@ -27,6 +27,7 @@ import (
     "github.com/googollee/go-engine.io/transport/polling"
     "github.com/googollee/go-engine.io/transport/websocket"
     "github.com/googollee/go-engine.io/transport"
+    L "./lib"
 )
 
 var databaseName = "WebNineGameDB"
@@ -44,6 +45,7 @@ type User struct {
     QuestionFinishedMask []bool `json:"questionfinishedmask"`
     AnswerText string `json:"answertext"`
     AnswerBase64Str string `json:"answerbase64str"`
+    IsRejected bool `json:"isrejected"`
 }
 
 type Question struct {
@@ -104,6 +106,7 @@ func initialize_users(collection *mongo.Collection, max_team int){
             Account: account,
             Password: password,
             QuestionIndex : -1,
+            IsRejected: false,
         }
         _, err := f.WriteString(account + " " + password + "\n")
         if err != nil{
@@ -246,9 +249,16 @@ func (user *User) saveAnswer(collection *mongo.Collection) bool{
             {"questionindex", bson.D{{"$ne", -1}}}, // questionIndex should not equal to -1
         }
 
-    // Register this team's answer text and image
+    // Register this team's answer text and image and then reset isrejected
+    // (because the admin has not viewed this answer)
     update := bson.D{
-            {"$set", bson.D{{"answertext", user.AnswerText}, {"answerbase64str", user.AnswerBase64Str}}},
+            {"$set",
+                bson.D{
+                    {"answertext", user.AnswerText},
+                    {"answerbase64str", user.AnswerBase64Str},
+                    {"isrejected", false},
+                },
+            },
         }
 
     err := collection.FindOneAndUpdate(context.TODO(), filter, update).Err()
@@ -297,9 +307,10 @@ func (user *User) updateQuestionIndex(collection *mongo.Collection) bool{
 }
 
 // Admin gets all information
-func getAll(collection *mongo.Collection, questions []Question) ([]*User, []*Question, bool){
+func getAll(collection *mongo.Collection, questions []Question) ([]*User, []*Question, []bool, bool){
     var users []*User
     var chosen_questions []*Question
+    var isrejecteds []bool
     filter := bson.D{
         {
             "account", bson.D{{"$ne", ADMIN}}, // account should not be equal to ADMIN
@@ -308,7 +319,7 @@ func getAll(collection *mongo.Collection, questions []Question) ([]*User, []*Que
     cursor, err := collection.Find(context.TODO(), filter)
     if err != nil {
         log.Printf("Somethings went wrong in getAll()")
-        return nil, nil, false
+        return nil, nil, nil, false
     }
     for cursor.Next(context.TODO()){
         var user User
@@ -323,9 +334,11 @@ func getAll(collection *mongo.Collection, questions []Question) ([]*User, []*Que
         }else{
             chosen_questions = append(chosen_questions, nil) // append nil
         }
+        // Append rejection statuses
+        isrejecteds = append(isrejecteds, user.IsRejected)
     }
     // Get each user's corresponding question
-    return users, chosen_questions, true
+    return users, chosen_questions, isrejecteds, true
 }
 
 func resetAll(collection *mongo.Collection) bool{
@@ -340,6 +353,7 @@ func resetAll(collection *mongo.Collection) bool{
                 {"questionfinishedmask", nil},
                 {"answertext", ""},
                 {"answerbase64str", ""},
+                {"isrejected", false}
             },
         },
     }
@@ -360,6 +374,7 @@ func approve_answer(user_account string, collection *mongo.Collection) bool{
     update := bson.D{
         {"$set", bson.D{
             {"questionindex", -1},
+            {"isrejected", false},
         }}, // reset questionindex to -1
     }
     // NOTE: Even if two processes race into this line, it will only be one process succeeded!
@@ -406,6 +421,7 @@ func skip_answer(user_account string, collection *mongo.Collection) bool{
             {"questionindex", -1},
             {"answertext", ""},
             {"answerbase64str", ""},
+            {"isrejected", false}, // reset isrejected
         }},
     }
     if err := collection.FindOneAndUpdate(context.TODO(), filter, update).Err(); err != nil{
@@ -562,6 +578,7 @@ func main(){
                 },
                 "answertext": user.AnswerText,
                 "answerbase64str": user.AnswerBase64Str,
+                "isrejected": user.IsRejected,
             })
             return
         })
@@ -584,6 +601,7 @@ func main(){
                     "gridNumbers": user.GridNumbers,
                     "questionIndex": user.QuestionIndex,
                     "question_finished_mask": user.QuestionFinishedMask,
+                    "isrejected": user.IsRejected,
                 })
             }else{
                 c.String(http.StatusNotFound, "Page Not Found")
@@ -630,6 +648,7 @@ func main(){
                 c.JSON(http.StatusOK, gin.H{
                     "answertext": user.AnswerText,
                     "answerbase64str": user.AnswerBase64Str,
+                    "isrejected": user.IsRejected,
                 })
                 return
             }else{
@@ -670,7 +689,7 @@ func main(){
                 c.String(http.StatusNotAcceptable, "You are not admin! Get out!")
                 return
             }
-            users, chosen_questions, success := getAll(user_collection, questions)
+            users, chosen_questions, isrejecteds, success := getAll(user_collection, questions)
             if !success {
                 c.String(http.StatusNotAcceptable, "getAll() failed")
                 return
@@ -679,6 +698,7 @@ func main(){
             c.JSON(http.StatusOK, gin.H{
                 "users": users,
                 "questions":chosen_questions,
+                "isrejecteds": isrejecteds,
             })
             return
         })
@@ -732,6 +752,26 @@ func main(){
                 return
             }
             c.String(http.StatusOK, "[*] Skipping that question succeeded!")
+            return
+        })
+
+        private_router.POST("/reject_answer", func(c *gin.Context){
+            account, _ := c.MustGet("account").(string)
+            if account != ADMIN {
+                c.String(http.StatusNotAcceptable, "You are not admin! Get out!")
+                return
+            }
+            var target_user User
+            if c.ShouldBindBodyWith(&target_user, binding.JSON) != nil{
+                c.String(http.StatusNotAcceptable, "[!] c.ShouldBindBodyWith failed!")
+                return
+            }
+
+            fmt.Printf("Perform reject answer on %s\n", target_user.Account)
+            if success := L.RejectAnswer(target_user.Account, user_collection); !success{
+                c.String(http.StatusNotAcceptable, "[!] reject_answer failed!")
+            }
+            c.String(http.StatusOK, "[*] Reject that question succeeded!")
             return
         })
     }
