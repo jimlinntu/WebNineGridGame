@@ -12,11 +12,13 @@ export default new Vuex.Store({
       question: {}, // question = {description: ..., image: ...}
       questionIndex: -1,
       isrejected: null,
+      haspetition: false,
       question_finished_mask: [],
       answer: {}, // answer corresponding to current question
       users: [],
       questions: [],
-      isrejecteds: [],
+      isrejecteds: [], // []bool
+      haspetitions: [], // []bool
   },
   mutations: {
       set_login_loading(state) {
@@ -57,10 +59,14 @@ export default new Vuex.Store({
             answerbase64str: answerbase64str,
           }
       },
-      set_users_status(state, {users, questions, isrejecteds}){
+      set_users_status(state, {users, questions, isrejecteds, haspetitions}){
           state.users = users 
           state.questions = questions
           state.isrejecteds = isrejecteds
+          state.haspetitions = haspetitions
+      },
+      set_petition_skip_question_status(state, {haspetition}){
+          state.haspetition = haspetition
       }
   },
   actions: {
@@ -124,6 +130,11 @@ export default new Vuex.Store({
                 isrejected: response.data.isrejected
             })
 
+            // set petition flag
+            context.commit("set_petition_skip_question_status", {
+                haspetition: response.data.haspetition
+            })
+
         }).catch((error)=>{
             console.log(error)
         })
@@ -151,6 +162,23 @@ export default new Vuex.Store({
                 answertext: response.data.answertext,
                 answerbase64str: response.data.answerbase64str,
                 isrejected: response.data.isrejected
+            })
+
+            // Reset petition status to false
+            context.commit("set_petition_skip_question_status", {
+                haspetition: response.data.haspetition
+            })
+        }).catch((error)=>{
+            console.log(error)
+        })
+      },
+      petitionSkipQuestion(context){
+        Vue.axios.post(this.state.backend_url + "user/petition_skip_question",{
+            token: this.state.auth_token,
+        }).then((response)=>{
+            console.log(response)
+            context.commit("set_petition_skip_question_status", {
+                haspetition: response.data.haspetition
             })
         }).catch((error)=>{
             console.log(error)
@@ -181,7 +209,8 @@ export default new Vuex.Store({
             context.commit("set_users_status", {
                 users: response.data.users,
                 questions: response.data.questions,
-                isrejecteds: response.data.isrejecteds
+                isrejecteds: response.data.isrejecteds,
+                haspetitions: response.data.haspetitions
             })
             
         }).catch((error)=>{
@@ -203,7 +232,9 @@ export default new Vuex.Store({
             token: this.state.auth_token,
             account: target_account,
         }).then((response)=>{
-          console.log(response)
+            console.log(response)
+            // Refetch all users' statuses
+            context.dispatch('getAll')
         }).catch((error)=>{
             console.log(error)
         })
@@ -214,6 +245,8 @@ export default new Vuex.Store({
             account: target_account,
         }).then((response)=>{
             console.log(response)
+            // Refetch all users' statuses
+            context.dispatch('getAll')
         }).catch((error)=>{
             console.log(error)
         })
@@ -224,6 +257,8 @@ export default new Vuex.Store({
             account: target_account,
         }).then((response)=>{
             console.log(response)
+            // Refetch all users' statuses
+            context.dispatch('getAll')
         }).catch((error)=>{
             console.log(error)
         })

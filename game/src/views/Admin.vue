@@ -18,11 +18,12 @@
               :question="questions[index]">
         </Board>
         <hr>
-        <!--<RejectStatus v-if="questions[index] !== null" :isrejected="isrejecteds[index]"></RejectStatus>-->
+        <PetitionStatus v-if="questions[index] !== null" :haspetition="haspetitions[index]"></PetitionStatus>
+        <hr>
         <RejectStatus v-if="questions[index] !== null" :isrejected="isrejecteds[index]"></RejectStatus>
         <hr>
         <!-- User must have answer some texts or attached an image -->
-        <b-row v-if="(user.answertext || user.answerbase64str) && questions[index] !== null">
+        <b-row v-if="questions[index] !== null">
             <b-col cols="4"><b-button variant="primary" size="lg" @click="approve($event, user)">核准</b-button></b-col>
             <b-col cols="4"><b-button variant="danger" size="lg" @click="skip($event, user)">跳題</b-button></b-col>
             <b-col cols="4"><b-button size="lg" @click="reject($event, user)">此題回答錯誤</b-button></b-col>
@@ -35,12 +36,14 @@
 <script>
 import Board from '@/components/Board'
 import RejectStatus from '@/components/RejectStatus'
+import PetitionStatus from '@/components/PetitionStatus'
 
 export default {
   name: "Admin",
   components: {
     Board,
-    RejectStatus
+    RejectStatus,
+    PetitionStatus,
   },
   data(){
     return {
@@ -67,8 +70,6 @@ export default {
         target_account: user.account,
       })
 
-      // Refresh this admin page
-      this.getAll()
     },
     skip(evt, user){
       if(!confirm("確定要讓" + user.account + "跳題嗎?")){
@@ -80,8 +81,6 @@ export default {
         target_account: user.account,
       })
 
-      // Refresh this admin page
-      this.getAll()
     },
     reject(evt, user){
       if(!confirm("確定要拒絕 " + user.account + "的回答嗎?")){
@@ -93,8 +92,6 @@ export default {
         target_account: user.account,
       })
 
-      // Refresh this admin page
-      this.getAll()
     }
   },
   computed: {
@@ -106,6 +103,9 @@ export default {
     },
     isrejecteds(){
       return this.$store.state.isrejecteds
+    },
+    haspetitions(){
+      return this.$store.state.haspetitions
     }
   }
 }

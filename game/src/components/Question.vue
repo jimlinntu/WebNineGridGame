@@ -25,14 +25,17 @@
       </b-row>
       <hr>
       <b-row class="text-center" v-if="$store.state.question.description">
-        <b-col><b-button @click.prevent="submitAnswer">提交答案</b-button></b-col>
+        <b-col cols="6"><b-button size="lg" @click.prevent="submitAnswer">提交答案</b-button></b-col>
+        <b-col cols="6"><b-button variant="danger" size="lg" @click.prevent="petitionSkipQuestion">我卡關了,我想跳題!</b-button></b-col>
       </b-row>
       <hr>
       <b-row class="text-center">
         <b-col cols="12"><h4>之前已提交的答案為:</h4></b-col>
-        <b-col cols="12"class="previous_answer">{{ getCurrentAnswer.answertext }} </b-col>
+        <b-col cols="12" class="previous_answer">{{ getCurrentAnswer.answertext }} </b-col>
         <b-col cols="12"><img :src="getCurrentAnswer.answerbase64str"/></b-col>
       </b-row>
+      <hr>
+      <PetitionStatus :haspetition="$store.state.haspetition"></PetitionStatus>
       <hr>
       <RejectStatus :isrejected="$store.state.isrejected"></RejectStatus>
     </b-container>
@@ -41,6 +44,7 @@
 <script>
 
 import RejectStatus from '@/components/RejectStatus'
+import PetitionStatus from '@/components/PetitionStatus'
 
 function getBase64(file) {
   return new Promise((resolve, reject) => {
@@ -55,6 +59,7 @@ export default {
   name: "Question",
   components: {
     RejectStatus,
+    PetitionStatus
   },  
   data(){
     return {
@@ -102,6 +107,14 @@ export default {
       this.answer.file = null
       // Reset text
       this.answer.text = ""
+    },
+    petitionSkipQuestion(evt){
+      if(!confirm("確定要請求跳題嗎?(注意, 請求之後不一定就會馬上跳題, 主辦人會視情況允許跳題)")){
+        console.log("取消跳題")
+        return
+      }
+      console.log("請願跳題中...")
+      this.$store.dispatch("petitionSkipQuestion")
     }
   }
 }
