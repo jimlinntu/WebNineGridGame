@@ -28,3 +28,23 @@ func RejectAnswer(user_account string, collection *mongo.Collection) bool{
     return true
 }
 
+func PetitionSkipAnswer(user_account string, collection *mongo.Collection) bool{
+    filter := bson.D{
+        {"account", user_account},
+        {"questionindex", bson.D{
+            {"$ne", -1},
+        }},
+    }
+
+    update := bson.D{
+        {"$set", bson.D{
+            {"haspetition", true}, // set this user intent to petition for skipping
+        }},
+    }
+
+    if err := collection.FindOneAndUpdate(context.TODO(), filter, update).Err(); err != nil{
+        log.Printf("[*] The user %s petition for skipping failed!", user_account)
+        return false
+    }
+    return true
+}

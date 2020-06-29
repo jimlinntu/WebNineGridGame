@@ -46,6 +46,7 @@ type User struct {
     AnswerText string `json:"answertext"`
     AnswerBase64Str string `json:"answerbase64str"`
     IsRejected bool `json:"isrejected"`
+    HasPetition bool `json:"haspetition"`
 }
 
 type Question struct {
@@ -107,6 +108,7 @@ func initialize_users(collection *mongo.Collection, max_team int){
             Password: password,
             QuestionIndex : -1,
             IsRejected: false,
+            HasPetition: false,
         }
         _, err := f.WriteString(account + " " + password + "\n")
         if err != nil{
@@ -257,6 +259,7 @@ func (user *User) saveAnswer(collection *mongo.Collection) bool{
                     {"answertext", user.AnswerText},
                     {"answerbase64str", user.AnswerBase64Str},
                     {"isrejected", false},
+                    {"haspetition", false}, // reset this flag because the user upload a new answer
                 },
             },
         }
@@ -307,10 +310,12 @@ func (user *User) updateQuestionIndex(collection *mongo.Collection) bool{
 }
 
 // Admin gets all information
-func getAll(collection *mongo.Collection, questions []Question) ([]*User, []*Question, []bool, bool){
+func getAll(collection *mongo.Collection, questions []Question) ([]*User, []*Question, []bool, []bool, bool){
     var users []*User
     var chosen_questions []*Question
     var isrejecteds []bool
+    var haspetitions []bool
+
     filter := bson.D{
         {
             "account", bson.D{{"$ne", ADMIN}}, // account should not be equal to ADMIN
@@ -319,7 +324,7 @@ func getAll(collection *mongo.Collection, questions []Question) ([]*User, []*Que
     cursor, err := collection.Find(context.TODO(), filter)
     if err != nil {
         log.Printf("Somethings went wrong in getAll()")
-        return nil, nil, nil, false
+        return nil, nil, nil, nil, false
     }
     for cursor.Next(context.TODO()){
         var user User
@@ -336,9 +341,10 @@ func getAll(collection *mongo.Collection, questions []Question) ([]*User, []*Que
         }
         // Append rejection statuses
         isrejecteds = append(isrejecteds, user.IsRejected)
+        haspetitions = append(haspetitions, user.HasPetition)
     }
     // Get each user's corresponding question
-    return users, chosen_questions, isrejecteds, true
+    return users, chosen_questions, isrejecteds, haspetitions, true
 }
 
 func resetAll(collection *mongo.Collection) bool{
@@ -353,7 +359,8 @@ func resetAll(collection *mongo.Collection) bool{
                 {"questionfinishedmask", nil},
                 {"answertext", ""},
                 {"answerbase64str", ""},
-                {"isrejected", false}
+                {"isrejected", false},
+                {"haspetition", false},
             },
         },
     }
@@ -375,6 +382,7 @@ func approve_answer(user_account string, collection *mongo.Collection) bool{
         {"$set", bson.D{
             {"questionindex", -1},
             {"isrejected", false},
+            {"haspetition", false},
         }}, // reset questionindex to -1
     }
     // NOTE: Even if two processes race into this line, it will only be one process succeeded!
@@ -422,6 +430,7 @@ func skip_answer(user_account string, collection *mongo.Collection) bool{
             {"answertext", ""},
             {"answerbase64str", ""},
             {"isrejected", false}, // reset isrejected
+            {"haspetition", false}, // reset haspetition
         }},
     }
     if err := collection.FindOneAndUpdate(context.TODO(), filter, update).Err(); err != nil{
@@ -579,6 +588,7 @@ func main(){
                 "answertext": user.AnswerText,
                 "answerbase64str": user.AnswerBase64Str,
                 "isrejected": user.IsRejected,
+                "haspetition": user.HasPetition,
             })
             return
         })
@@ -649,10 +659,26 @@ func main(){
                     "answertext": user.AnswerText,
                     "answerbase64str": user.AnswerBase64Str,
                     "isrejected": user.IsRejected,
+                    "haspetition": user.HasPetition,
                 })
                 return
             }else{
                 c.String(http.StatusNotAcceptable, "/get_answer's input body is weird!")
+                return
+            }
+        })
+
+        private_router.POST("/petition_skip_question", func(c *gin.Context){
+            account, _ := c.MustGet("account").(string)
+            log.Printf("account: %s try to petition for skipping question", account)
+
+            if success := L.PetitionSkipAnswer(account, user_collection); !success {
+                c.String(http.StatusNotAcceptable, "Petition for skipping quesiton failed!")
+                return
+            }else{
+                c.JSON(http.StatusOK, gin.H{
+                    "haspetition": success,
+                })
                 return
             }
         })
@@ -689,7 +715,7 @@ func main(){
                 c.String(http.StatusNotAcceptable, "You are not admin! Get out!")
                 return
             }
-            users, chosen_questions, isrejecteds, success := getAll(user_collection, questions)
+            users, chosen_questions, isrejecteds, haspetitions, success := getAll(user_collection, questions)
             if !success {
                 c.String(http.StatusNotAcceptable, "getAll() failed")
                 return
@@ -699,6 +725,7 @@ func main(){
                 "users": users,
                 "questions":chosen_questions,
                 "isrejecteds": isrejecteds,
+                "haspetitions": haspetitions,
             })
             return
         })
