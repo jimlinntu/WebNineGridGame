@@ -18,6 +18,8 @@
               :question="questions[index]">
         </Board>
         <hr>
+        <TimeStatus v-if="questions[index] !== null" :elapsedseconds="elapsedseconds_s[index]"></TimeStatus>
+        <hr>
         <PetitionStatus v-if="questions[index] !== null" :haspetition="haspetitions[index]"></PetitionStatus>
         <hr>
         <RejectStatus v-if="questions[index] !== null" :isrejected="isrejecteds[index]"></RejectStatus>
@@ -38,6 +40,7 @@
 import Board from '@/components/Board'
 import RejectStatus from '@/components/RejectStatus'
 import PetitionStatus from '@/components/PetitionStatus'
+import TimeStatus from '@/components/TimeStatus'
 
 export default {
   name: "Admin",
@@ -45,6 +48,7 @@ export default {
     Board,
     RejectStatus,
     PetitionStatus,
+    TimeStatus,
   },
   data(){
     return {
@@ -110,6 +114,9 @@ export default {
     },
     numskips(){
       return this.$store.state.numskips
+    },
+    elapsedseconds_s(){
+      return this.$store.state.elapsedseconds_s
     }
   }
 }

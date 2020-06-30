@@ -35,6 +35,9 @@
         <b-col cols="12"><img :src="getCurrentAnswer.answerbase64str"/></b-col>
       </b-row>
       <hr>
+      <!-- Only show the elapsed seconds when this user has chosen a question!-->
+      <TimeStatus v-if="$store.state.question.description" :elapsedseconds="$store.state.elapsedseconds"></TimeStatus>
+      <hr>
       <PetitionStatus :haspetition="$store.state.haspetition"></PetitionStatus>
       <hr>
       <RejectStatus :isrejected="$store.state.isrejected"></RejectStatus>
@@ -45,6 +48,7 @@
 
 import RejectStatus from '@/components/RejectStatus'
 import PetitionStatus from '@/components/PetitionStatus'
+import TimeStatus from '@/components/TimeStatus'
 
 function getBase64(file) {
   return new Promise((resolve, reject) => {
@@ -59,7 +63,8 @@ export default {
   name: "Question",
   components: {
     RejectStatus,
-    PetitionStatus
+    PetitionStatus,
+    TimeStatus
   },  
   data(){
     return {

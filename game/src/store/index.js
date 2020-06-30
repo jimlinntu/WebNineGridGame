@@ -13,6 +13,7 @@ export default new Vuex.Store({
       questionIndex: -1,
       isrejected: null,
       haspetition: false,
+      elapsedseconds: 0, // int
       question_finished_mask: [],
       answer: {}, // answer corresponding to current question
       users: [],
@@ -20,6 +21,7 @@ export default new Vuex.Store({
       isrejecteds: [], // []bool
       haspetitions: [], // []bool
       numskips: [], // []int
+      elapsedseconds_s: [] // []int
   },
   mutations: {
       set_login_loading(state) {
@@ -60,15 +62,19 @@ export default new Vuex.Store({
             answerbase64str: answerbase64str,
           }
       },
-      set_users_status(state, {users, questions, isrejecteds, haspetitions, numskips}){
+      set_users_status(state, {users, questions, isrejecteds, haspetitions, numskips, elapsedseconds_s}){
           state.users = users 
           state.questions = questions
           state.isrejecteds = isrejecteds
           state.haspetitions = haspetitions
           state.numskips = numskips
+          state.elapsedseconds_s = elapsedseconds_s
       },
       set_petition_skip_question_status(state, {haspetition}){
           state.haspetition = haspetition
+      },
+      set_elapsed_seconds(state, {elapsedseconds}){
+          state.elapsedseconds = elapsedseconds
       }
   },
   actions: {
@@ -137,6 +143,11 @@ export default new Vuex.Store({
                 haspetition: response.data.haspetition
             })
 
+            // set elapsed seconds
+            context.commit("set_elapsed_seconds", {
+                elapsedseconds: response.data.elapsedseconds
+            })
+
         }).catch((error)=>{
             console.log(error)
         })
@@ -197,6 +208,11 @@ export default new Vuex.Store({
                 questionIndex: response.data.questionIndex,
                 question: response.data.question
             })
+
+            // set elapsed seconds
+            context.commit("set_elapsed_seconds", {
+                elapsedseconds: response.data.elapsedseconds
+            })
         }).catch((error)=>{
             console.log(error)
         })
@@ -213,7 +229,8 @@ export default new Vuex.Store({
                 questions: response.data.questions,
                 isrejecteds: response.data.isrejecteds,
                 haspetitions: response.data.haspetitions,
-                numskips: response.data.numskips
+                numskips: response.data.numskips,
+                elapsedseconds_s: response.data.elapsedseconds_s
             })
             
         }).catch((error)=>{
