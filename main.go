@@ -47,6 +47,7 @@ type User struct {
     AnswerBase64Str string `json:"answerbase64str"`
     IsRejected bool `json:"isrejected"`
     HasPetition bool `json:"haspetition"`
+    NumSkip int `json:"numskip"`
 }
 
 type Question struct {
@@ -109,6 +110,7 @@ func initialize_users(collection *mongo.Collection, max_team int){
             QuestionIndex : -1,
             IsRejected: false,
             HasPetition: false,
+            NumSkip: 0,
         }
         _, err := f.WriteString(account + " " + password + "\n")
         if err != nil{
@@ -310,11 +312,12 @@ func (user *User) updateQuestionIndex(collection *mongo.Collection) bool{
 }
 
 // Admin gets all information
-func getAll(collection *mongo.Collection, questions []Question) ([]*User, []*Question, []bool, []bool, bool){
+func getAll(collection *mongo.Collection, questions []Question)([]*User, []*Question, []bool, []bool, []int, bool){
     var users []*User
     var chosen_questions []*Question
     var isrejecteds []bool
     var haspetitions []bool
+    var numskips []int // the number of jump for each user
 
     filter := bson.D{
         {
@@ -324,7 +327,7 @@ func getAll(collection *mongo.Collection, questions []Question) ([]*User, []*Que
     cursor, err := collection.Find(context.TODO(), filter)
     if err != nil {
         log.Printf("Somethings went wrong in getAll()")
-        return nil, nil, nil, nil, false
+        return nil, nil, nil, nil, nil, false
     }
     for cursor.Next(context.TODO()){
         var user User
@@ -342,9 +345,10 @@ func getAll(collection *mongo.Collection, questions []Question) ([]*User, []*Que
         // Append rejection statuses
         isrejecteds = append(isrejecteds, user.IsRejected)
         haspetitions = append(haspetitions, user.HasPetition)
+        numskips = append(numskips, user.NumSkip)
     }
     // Get each user's corresponding question
-    return users, chosen_questions, isrejecteds, haspetitions, true
+    return users, chosen_questions, isrejecteds, haspetitions, numskips, true
 }
 
 func resetAll(collection *mongo.Collection) bool{
@@ -361,6 +365,7 @@ func resetAll(collection *mongo.Collection) bool{
                 {"answerbase64str", ""},
                 {"isrejected", false},
                 {"haspetition", false},
+                {"numskip", 0},
             },
         },
     }
@@ -431,6 +436,9 @@ func skip_answer(user_account string, collection *mongo.Collection) bool{
             {"answerbase64str", ""},
             {"isrejected", false}, // reset isrejected
             {"haspetition", false}, // reset haspetition
+        }},
+        {"$inc", bson.D{
+            {"numskip", 1}, // increment numskip by 1
         }},
     }
     if err := collection.FindOneAndUpdate(context.TODO(), filter, update).Err(); err != nil{
@@ -715,7 +723,7 @@ func main(){
                 c.String(http.StatusNotAcceptable, "You are not admin! Get out!")
                 return
             }
-            users, chosen_questions, isrejecteds, haspetitions, success := getAll(user_collection, questions)
+            users, chosen_questions, isrejecteds, haspetitions, numskips, success := getAll(user_collection, questions)
             if !success {
                 c.String(http.StatusNotAcceptable, "getAll() failed")
                 return
@@ -726,6 +734,7 @@ func main(){
                 "questions":chosen_questions,
                 "isrejecteds": isrejecteds,
                 "haspetitions": haspetitions,
+                "numskips": numskips,
             })
             return
         })
