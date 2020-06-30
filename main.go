@@ -48,6 +48,7 @@ type User struct {
     IsRejected bool `json:"isrejected"`
     HasPetition bool `json:"haspetition"`
     NumSkip int `json:"numskip"`
+    TimeStamp int64`json:"timestamp"`
 }
 
 type Question struct {
@@ -111,6 +112,7 @@ func initialize_users(collection *mongo.Collection, max_team int){
             IsRejected: false,
             HasPetition: false,
             NumSkip: 0,
+            TimeStamp: 0, // set timestamp == 0 (apparent the real timestamp will not be zero)
         }
         _, err := f.WriteString(account + " " + password + "\n")
         if err != nil{
@@ -247,7 +249,7 @@ func (user *User) getGridNumbersByAccount(collection *mongo.Collection) bool{
 }
 
 func (user *User) saveAnswer(collection *mongo.Collection) bool{
-    // Find this user by account and update its answer if its questionIndex != -
+    // Find this user by account and update its answer if its questionIndex != -1
     filter := bson.D{
             {"account", user.Account },
             {"questionindex", bson.D{{"$ne", -1}}}, // questionIndex should not equal to -1
@@ -298,8 +300,12 @@ func (user *User) updateQuestionIndex(collection *mongo.Collection) bool{
         return false
     }
     log.Printf("[*] User %s selected question index is %d", user.Account, user.QuestionIndex)
+    timestamp := time.Now().Unix()
     update := bson.D{
-            {"$set", bson.D{{"questionindex", user.QuestionIndex}}},
+            {"$set", bson.D{
+                {"questionindex", user.QuestionIndex},
+                {"timestamp", timestamp}, // update the user's timestamp
+            }},
         }
     var before_updated_user User
     err := collection.FindOneAndUpdate(context.TODO(), filter, update).Decode(&before_updated_user)
@@ -308,16 +314,18 @@ func (user *User) updateQuestionIndex(collection *mongo.Collection) bool{
         return false
     }
     user.GridNumbers = before_updated_user.GridNumbers
+    user.TimeStamp = timestamp
     return true
 }
 
 // Admin gets all information
-func getAll(collection *mongo.Collection, questions []Question)([]*User, []*Question, []bool, []bool, []int, bool){
+func getAll(collection *mongo.Collection, questions []Question)([]*User, []*Question, []bool, []bool, []int, []int64, bool){
     var users []*User
     var chosen_questions []*Question
     var isrejecteds []bool
     var haspetitions []bool
     var numskips []int // the number of jump for each user
+    var elapsedseconds_s []int64
 
     filter := bson.D{
         {
@@ -327,8 +335,11 @@ func getAll(collection *mongo.Collection, questions []Question)([]*User, []*Ques
     cursor, err := collection.Find(context.TODO(), filter)
     if err != nil {
         log.Printf("Somethings went wrong in getAll()")
-        return nil, nil, nil, nil, nil, false
+        return nil, nil, nil, nil, nil, nil, false
     }
+
+    current_timestamp := time.Now().Unix()
+
     for cursor.Next(context.TODO()){
         var user User
         cursor.Decode(&user)
@@ -346,9 +357,10 @@ func getAll(collection *mongo.Collection, questions []Question)([]*User, []*Ques
         isrejecteds = append(isrejecteds, user.IsRejected)
         haspetitions = append(haspetitions, user.HasPetition)
         numskips = append(numskips, user.NumSkip)
+        elapsedseconds_s = append(elapsedseconds_s, current_timestamp - user.TimeStamp)
     }
     // Get each user's corresponding question
-    return users, chosen_questions, isrejecteds, haspetitions, numskips, true
+    return users, chosen_questions, isrejecteds, haspetitions, numskips, elapsedseconds_s, true
 }
 
 func resetAll(collection *mongo.Collection) bool{
@@ -366,6 +378,7 @@ func resetAll(collection *mongo.Collection) bool{
                 {"isrejected", false},
                 {"haspetition", false},
                 {"numskip", 0},
+                {"timestamp", 0},
             },
         },
     }
@@ -597,6 +610,7 @@ func main(){
                 "answerbase64str": user.AnswerBase64Str,
                 "isrejected": user.IsRejected,
                 "haspetition": user.HasPetition,
+                "elapsedseconds": time.Now().Unix() - user.TimeStamp,
             })
             return
         })
@@ -707,6 +721,7 @@ func main(){
                             "description": questions[user.GridNumbers[user.QuestionIndex]-1].Description,
                             "image": questions[user.GridNumbers[user.QuestionIndex]-1].Base64Image,
                         },
+                        "elapsedseconds": time.Now().Unix() - user.TimeStamp,
                     })
                 }else{
                     c.String(http.StatusNotAcceptable, "")
@@ -723,7 +738,7 @@ func main(){
                 c.String(http.StatusNotAcceptable, "You are not admin! Get out!")
                 return
             }
-            users, chosen_questions, isrejecteds, haspetitions, numskips, success := getAll(user_collection, questions)
+            users, chosen_questions, isrejecteds, haspetitions, numskips, elapsedseconds_s, success := getAll(user_collection, questions)
             if !success {
                 c.String(http.StatusNotAcceptable, "getAll() failed")
                 return
@@ -735,6 +750,7 @@ func main(){
                 "isrejecteds": isrejecteds,
                 "haspetitions": haspetitions,
                 "numskips": numskips,
+                "elapsedseconds_s": elapsedseconds_s,
             })
             return
         })
