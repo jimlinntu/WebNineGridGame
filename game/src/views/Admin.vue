@@ -25,7 +25,8 @@
         <!-- User must have answer some texts or attached an image -->
         <b-row v-if="questions[index] !== null">
             <b-col cols="4"><b-button variant="primary" size="lg" @click="approve($event, user)">核准</b-button></b-col>
-            <b-col cols="4"><b-button variant="danger" size="lg" @click="skip($event, user)">跳題</b-button></b-col>
+            <b-col cols="2"><b-button variant="danger" size="lg" @click="skip($event, user)">跳題</b-button></b-col>
+            <b-col cols="2"><h4>(已跳題 {{ numskips[index] }} 次)</h4></b-col>
             <b-col cols="4"><b-button size="lg" @click="reject($event, user)">此題回答錯誤</b-button></b-col>
         </b-row>
         <hr>
@@ -106,6 +107,9 @@ export default {
     },
     haspetitions(){
       return this.$store.state.haspetitions
+    },
+    numskips(){
+      return this.$store.state.numskips
     }
   }
 }

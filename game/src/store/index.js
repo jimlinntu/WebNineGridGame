@@ -19,6 +19,7 @@ export default new Vuex.Store({
       questions: [],
       isrejecteds: [], // []bool
       haspetitions: [], // []bool
+      numskips: [], // []int
   },
   mutations: {
       set_login_loading(state) {
@@ -59,11 +60,12 @@ export default new Vuex.Store({
             answerbase64str: answerbase64str,
           }
       },
-      set_users_status(state, {users, questions, isrejecteds, haspetitions}){
+      set_users_status(state, {users, questions, isrejecteds, haspetitions, numskips}){
           state.users = users 
           state.questions = questions
           state.isrejecteds = isrejecteds
           state.haspetitions = haspetitions
+          state.numskips = numskips
       },
       set_petition_skip_question_status(state, {haspetition}){
           state.haspetition = haspetition
@@ -210,7 +212,8 @@ export default new Vuex.Store({
                 users: response.data.users,
                 questions: response.data.questions,
                 isrejecteds: response.data.isrejecteds,
-                haspetitions: response.data.haspetitions
+                haspetitions: response.data.haspetitions,
+                numskips: response.data.numskips
             })
             
         }).catch((error)=>{
