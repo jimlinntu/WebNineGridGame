@@ -859,6 +859,10 @@ func main(){
             return
         })
     }
+    // See: https://router.vuejs.org/guide/essentials/history-mode.html
+    router.NoRoute(func(c *gin.Context){
+        c.Redirect(http.StatusMovedPermanently, "http://125.227.38.80:17989/")
+    })
     router.Run("0.0.0.0:80")
     destroyMongoClient(client)
 }
