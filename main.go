@@ -105,6 +105,7 @@ func initialize_users(collection *mongo.Collection, max_team int){
     for i := 1; i <= max_team; i++ {
         password := team_prefix + strconv.Itoa(i) + strconv.Itoa(rand.Intn(10000))
         account := team_prefix + strconv.Itoa(i)
+        fmt.Printf("Account: %s, Password: %s\n", account, password)
         user := User{
             Account: account,
             Password: password,
@@ -123,7 +124,7 @@ func initialize_users(collection *mongo.Collection, max_team int){
         if err != nil {
             log.Fatal(err)
         }else{
-            log.Printf("Team %d's password is: %s\n", i, password)
+            // log.Printf("Team %d's password is: %s\n", i, password)
         }
     }
     // Insert Admin
@@ -132,6 +133,7 @@ func initialize_users(collection *mongo.Collection, max_team int){
             Account: admin,
             Password: password,
     }
+    fmt.Printf("Account: %s, Password: %s\n", admin, password)
     _, err = f.WriteString(admin + " " + password + "\n")
     if err != nil{
         log.Fatal(err)
@@ -140,7 +142,7 @@ func initialize_users(collection *mongo.Collection, max_team int){
     if err != nil {
         log.Fatal(err)
     }else{
-        log.Printf("Admin's password is: %s\n", password)
+        // log.Printf("Admin's password is: %s\n", password)
     }
 }
 
@@ -532,8 +534,15 @@ func load_question_from_csv(filename string) []Question{
 
         description, image_path := record[0], record[1]
 
+        var base64_image string
+        if image_path == ""{
+            base64_image = "" // empty bas64_image
+        }else{
+            base64_image = load_image_as_base64_string(path.Join(DATA_FOLDER, image_path))
+        }
+
         questions = append(questions, Question{Description: description,
-                                               Base64Image: load_image_as_base64_string(path.Join(DATA_FOLDER, image_path)),
+                                               Base64Image: base64_image,
                                            })
     }
     return questions
