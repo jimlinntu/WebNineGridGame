@@ -20,7 +20,7 @@
           <b-form-file v-model="answer.file" :state="Boolean(answer.file)" placeholder="請上傳照片"></b-form-file>
         </b-col>
         <b-col cols="12">
-          <img :src="answer.base64_str"/>
+          <img v-if="answer.base64_str !== null" :src="answer.base64_str"/>
         </b-col>
       </b-row>
       <hr>
@@ -28,6 +28,10 @@
         <b-col cols="6"><b-button size="lg" @click.prevent="submitAnswer">提交答案</b-button></b-col>
         <b-col cols="6"><b-button variant="danger" size="lg" @click.prevent="petitionSkipQuestion">我卡關了,我想跳題!</b-button></b-col>
       </b-row>
+      <hr>
+        <b-row class="text-center" v-if="getUploadStatus !== ''">
+          <b-col cols="12">{{ getUploadStatus }}</b-col>
+        </b-row>
       <hr>
       <b-row class="text-center">
         <b-col cols="12"><h4>之前已提交的答案為:</h4></b-col>
@@ -59,6 +63,53 @@ function getBase64(file) {
   });
 }
 
+var max_height = 1024
+var image_quality = 0.6
+function getCompressedBase64(file){
+    // Reference: https://github.com/josefrichter/resize/blob/master/public/preprocess.js
+    return new Promise((resolve, reject) => {
+        let rejectFunc = (error) => {
+            reject(error);
+        }
+
+        const reader = new FileReader();
+        reader.readAsArrayBuffer(file);
+        reader.onload = function(event){
+            let blob = new Blob([event.target.result]);
+            window.URL = window.URL || window.webkitURL;
+            let blobURL = window.URL.createObjectURL(blob);
+            let image = new Image();
+            image.src = blobURL;
+            image.onload = function(){
+                let width = image.width;
+                let height = image.height;
+                let aspect_ratio = width / height;
+
+                if(height > max_height){
+                    height = max_height;
+                    width = Math.round(max_height * aspect_ratio);
+                }
+
+                let resized = resize(image, width, height);
+
+                resolve(resized);
+            }
+            image.onerror = rejectFunc;
+        }
+
+        reader.onerror = rejectFunc;
+    })
+}
+
+function resize(img, width, height){
+    let canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    let ctx = canvas.getContext("2d");
+    ctx.drawImage(img, 0, 0, width, height);
+    return canvas.toDataURL("image/jpeg", image_quality);
+}
+
 export default {
   name: "Question",
   components: {
@@ -78,9 +129,10 @@ export default {
   watch: {
     'answer.file' (newFile){
       if(newFile !== null){
-        getBase64(newFile).then((data) =>{
-          this.answer.base64_str = data
-        })
+        getCompressedBase64(newFile).then((data) =>{
+            this.answer.base64_str = data;
+        });
+        return;
       }else{
         this.answer.base64_str = null
       }
@@ -90,6 +142,9 @@ export default {
     getCurrentAnswer(){
       // get previous answer from backend
       return this.$store.state.answer
+    },
+    getUploadStatus(){
+      return this.$store.state.upload_status;
     }
   },
   methods:{

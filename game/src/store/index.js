@@ -8,6 +8,7 @@ export default new Vuex.Store({
       backend_url: "http://125.227.38.80:17989/",
       auth_status: '未登入',
       auth_token: '',
+      upload_status: '',
       gridNumbers: [], // grid numbers retrieve from backend
       question: {}, // question = {description: ..., image: ...}
       questionIndex: -1,
@@ -75,6 +76,18 @@ export default new Vuex.Store({
       },
       set_elapsed_seconds(state, {elapsedseconds}){
           state.elapsedseconds = elapsedseconds
+      },
+      set_uploading(state){
+          state.upload_status = "上傳答案中!請稍後一下....(圖片上傳會花比較久時間)"
+      },
+      set_upload_success(state){
+          state.upload_status = "上傳成功!"
+          setTimeout(() => {
+              state.upload_status = "";
+          }, 3000)
+      },
+      set_login_fail(state){
+          state.upload_status = "上傳失敗!請再試一次!"
       }
   },
   actions: {
@@ -153,6 +166,9 @@ export default new Vuex.Store({
         })
       },
       submitAnswer(context, {text, base64_str}){
+        // Set upload status
+        context.commit("set_uploading")
+        // Upload the answer
         Vue.axios.post(this.state.backend_url + "user/push_answer", {
             token: this.state.auth_token,
             answertext: text,
@@ -161,8 +177,11 @@ export default new Vuex.Store({
             console.log(response)
             // Get current answer from the backend server
             context.dispatch("getAnswer")
+            context.commit("set_upload_success")
         }).catch((error)=>{
             console.log(error)
+            // upload failed
+            context.commit("set_upload_failure")
         })
       },
       getAnswer(context){
