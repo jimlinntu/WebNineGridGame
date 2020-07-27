@@ -13,7 +13,7 @@
             <b-col class="slot" :class="{
                     'question_index': index === $store.state.questionIndex,
                     'question_finished': $store.state.question_finished_mask[index]
-                }" cols="4" v-for="(number, index) in $store.state.gridNumbers" :key="number" @click="selectQuestion($event, index)">
+                }" cols="3" v-for="(number, index) in $store.state.gridNumbers" :key="number" @click="selectQuestion($event, index)">
                 {{ number }}
             </b-col>
         </b-row>
@@ -25,7 +25,7 @@
             <b-col cols="12"><h1>請填入九宮格:</h1></b-col>
         </b-row>
         <b-row v-if="!hasGridNumbers">
-            <b-col class="slot" cols="4" v-for="i in 9" :key="i">
+            <b-col class="slot" cols="3" v-for="i in num_grid" :key="i">
                 <draggable class="draggable_slot" v-model="slots[i-1]" group="people" 
                         :move="checkNumberMove">
                     <div class="slots" v-for="element in slots[i-1]" :key="element">{{ element }}</div>
@@ -53,6 +53,8 @@
 import draggable from 'vuedraggable'
 import Question from '@/components/Question'
 
+var num_grid = 16;
+
 export default {
   name: 'GridGame',
   components: {
@@ -65,17 +67,18 @@ export default {
     for(let i = 0; i < 20; i++){
       unselectedNumbers.push(i+1);
     }
-    for(let i = 0; i < 9; i++){
+    for(let i = 0; i < num_grid; i++){
         slots.push([])
     }
     return {
       unselectedNumbers: unselectedNumbers,
-      slots: slots
+      slots: slots,
+      num_grid: num_grid
     }
   },
   computed: {
     hasGridNumbers(){
-        if(this.$store.state.gridNumbers.length === 9){
+        if(this.$store.state.gridNumbers.length === num_grid){
             return true
         }else return false
     },
@@ -85,7 +88,7 @@ export default {
             return "?"
         }
         let gridNumbers = this.$store.state.gridNumbers
-        if(gridNumbers === undefined || gridNumbers.length !== 9){
+        if(gridNumbers === undefined || gridNumbers.length !== num_grid){
             return "?"
         }
         return gridNumbers[index]
@@ -103,11 +106,12 @@ export default {
         return true
     },
     submitNineGrids(event){
-        // check 9 grids are full
+        // check num_grid grids are full
         window.console.log("Hello")
         let grids_are_full = true
         let selectedNumbers = []
-        for(let i = 0; i < 9; i++){
+        for(let i = 0; i < num_grid; i++){
+            // if one of the slots is empty, grids are not full
             if(this.slots[i].length !== 1){
                 grids_are_full = false
                 break
@@ -128,7 +132,7 @@ export default {
     selectQuestion(evt, index){
         // if he haven't choose a question
         let question_finished_mask = this.$store.state.question_finished_mask
-        if(question_finished_mask.length !== 9){
+        if(question_finished_mask.length !== num_grid){
             console.log("[*] question_finished_mask looks weird: ", question_finished_mask)
             return
         }

@@ -6,7 +6,7 @@
     <b-col class="slot" :class="{'question_finished': question_finished_mask[index],
            'question_index': index === questionIndex
           }"
-          cols="4" v-for="(number, index) in gridNumbers" :key="index">
+          cols="3" v-for="(number, index) in gridNumbers" :key="index">
       {{ number }}
     </b-col>
     <b-col cols="12" v-if="gridNumbers.length === 0">
