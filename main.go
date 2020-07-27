@@ -35,6 +35,8 @@ var notfound = "Page Not Found"
 var DATA_FOLDER = "./data"
 var ADMIN = "admin"
 
+var num_grid = 16
+
 // A team is a user, admin is also a user
 type User struct {
     Account string `json:"account"`
@@ -199,11 +201,11 @@ func (user * User)findUser(collection *mongo.Collection) bool{
 func (user *User) saveGridNumbersAndIntialize(collection *mongo.Collection) bool{
     question_index := -1 // have not chosen a question
     // Initiailize question mask
-    question_finished_mask := make([]bool, 9)
+    question_finished_mask := make([]bool, num_grid)
     // check if user's grid numbers is valid
     log.Printf("User %s submitted grid numbers are: %v", user.Account, user.GridNumbers)
-    if len(user.GridNumbers) != 9 {
-        log.Printf("Grid numbers' length should be 9!")
+    if len(user.GridNumbers) != num_grid {
+        log.Printf("Grid numbers' length should be %d!", num_grid)
         return false
     }
     _, err := collection.UpdateOne(context.TODO(),
@@ -297,8 +299,8 @@ func (user *User) updateQuestionIndex(collection *mongo.Collection) bool{
             {"account", user.Account},
             {"questionindex", -1}, // update questionindex only when this questionindex == -1
         }
-    if user.QuestionIndex < 0 || user.QuestionIndex > 8{
-        log.Printf("[!] user.QuestionIndex should be in [0, 8], but the user give %d", user.QuestionIndex)
+    if user.QuestionIndex < 0 || user.QuestionIndex >= num_grid{
+        log.Printf("[!] user.QuestionIndex should be in [0, %d], but the user give %d", num_grid-1, user.QuestionIndex)
         return false
     }
     log.Printf("[*] User %s selected question index is %d", user.Account, user.QuestionIndex)
