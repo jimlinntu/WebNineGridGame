@@ -86,7 +86,7 @@ export default new Vuex.Store({
               state.upload_status = "";
           }, 3000)
       },
-      set_login_fail(state){
+      set_upload_failure(state){
           state.upload_status = "上傳失敗!請再試一次!"
       }
   },
