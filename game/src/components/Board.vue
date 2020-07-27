@@ -3,6 +3,7 @@
     <b-col cols="12">備註: 1. <b class="gold_color">金黃色</b> 為組別正在解的題目, 2.<b class="green_color">綠色</b> 為組別已經完成的題目</b-col>
     <hr>
     <b-col cols="12"><h1> 組別: {{ team }} </h1></b-col>
+    <b-col cols="12"><h2> 目前連線數為: {{ num_lines }} </h2></b-col>
     <b-col class="slot" :class="{'question_finished': question_finished_mask[index],
            'question_index': index === questionIndex
           }"
@@ -28,6 +29,54 @@ export default {
           'answertext', 'answerbase64str', 'question'],
   data(){
     return {
+    }
+  },
+  computed: {
+    num_lines(){
+      if(this.question_finished_mask === null) return 0;
+      let len = this.question_finished_mask.length;
+      if(len !== 16) return -1;
+      let side_len = 4;
+      let counter = 0;
+      for(let i = 0; i < side_len; i++){
+        // Compute horizontal
+        let has_line = true;
+        for(let j = 0; j < side_len && has_line; j++){
+          let idx = side_len * i + j;
+          if(this.question_finished_mask[idx] === false){
+            has_line = false;
+          }
+        }
+        if(has_line) counter += 1;
+        // Compute vertical
+        has_line = true;
+        for(let j = 0; j < side_len && has_line; j++){
+          let idx = side_len * j + i;
+          if(this.question_finished_mask[idx] === false){
+            has_line = false;
+          }
+        }
+        if(has_line) counter += 1;
+      }
+      // Compute the main diagonal
+      let has_line = true;
+      for(let i = 0; i < side_len && has_line; i++){
+        let idx = side_len * i + i;
+        if(this.question_finished_mask[idx] === false){
+          has_line = false;
+        }
+      }
+      if(has_line) counter += 1;
+      // Compute the antidiagonal
+      has_line = true;
+      for(let i = 0; i < side_len && has_line; i++){
+        let idx = side_len * i + (side_len - i - 1);
+        if(this.question_finished_mask[idx] === false){
+          has_line = false;
+        }
+      }
+      if(has_line) counter += 1;
+      return counter;
     }
   }
 }
