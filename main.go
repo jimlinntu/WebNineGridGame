@@ -837,6 +837,27 @@ func main(){
             c.String(http.StatusOK, "[*] Reject that question succeeded!")
             return
         })
+
+        private_router.POST("/delete_finished", func(c *gin.Context){
+            account, _ := c.MustGet("account").(string)
+            if account != ADMIN {
+                c.String(http.StatusNotAcceptable, "You are not admin! Get out!")
+                return
+            }
+            var target_user User
+            if c.ShouldBindBodyWith(&target_user, binding.JSON) != nil{
+                c.String(http.StatusNotAcceptable, "[!] c.ShouldBindBodyWith failed!")
+                return
+            }
+
+            fmt.Printf("Perform deleting a finished answer on account: %s, questionIndex == %d\n",
+                target_user.Account, target_user.QuestionIndex)
+            if success := L.DeleteFinished(target_user.Account, target_user.QuestionIndex, num_grid, user_collection); !success{
+                c.String(http.StatusNotAcceptable, "[!] delete_finished failed!")
+            }
+            c.String(http.StatusOK, "[*] Delete a finished answer succeeded!")
+            return
+        })
     }
 
     // Perform authentication
