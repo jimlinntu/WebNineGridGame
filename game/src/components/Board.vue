@@ -7,7 +7,8 @@
     <b-col class="slot" :class="{'question_finished': question_finished_mask[index],
            'question_index': index === questionIndex
           }"
-          cols="3" v-for="(number, index) in gridNumbers" :key="index">
+          cols="3" v-for="(number, index) in gridNumbers" :key="index"
+          @click="deleteFinished($event, index)">
       {{ number }}
     </b-col>
     <b-col cols="12" v-if="gridNumbers.length === 0">
@@ -29,6 +30,20 @@ export default {
           'answertext', 'answerbase64str', 'question'],
   data(){
     return {
+    }
+  },
+  methods: {
+    deleteFinished(evt, index){
+      if(this.question_finished_mask === null) return;
+      let len = this.question_finished_mask.length;
+      if(this.question_finished_mask[index] === false) return;
+      if(!confirm("你確定要刪除這組已經完成的這一題嗎?")) return;
+
+      this.$store.dispatch("deleteFinished", {
+        target_account: this.team,
+        questionIndex: index,
+      })
+      return;
     }
   },
   computed: {

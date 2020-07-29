@@ -301,6 +301,19 @@ export default new Vuex.Store({
         }).catch((error)=>{
             console.log(error)
         })
+      },
+      deleteFinished(context, {target_account, questionIndex}){
+        Vue.axios.post(this.state.backend_url + "user/delete_finished", {
+            token: this.state.auth_token,
+            account: target_account,
+            questionIndex: questionIndex
+        }).then((response)=>{
+            console.log(response)
+            // Refetch all users' statuses
+            context.dispatch('getAll')
+        }).catch((error)=>{
+            console.log(error)
+        })
       }
   },
   modules: {
