@@ -11,6 +11,12 @@
     <hr>
     <!-- Loop over each row -->
     <template v-for="(user, index) in users">
+        <b-row>
+          <b-col cols="12">
+            <b-button @click="getAll">獲取最新組別狀態</b-button>
+          </b-col>
+        </b-row>
+        <hr>
         <Board :team="user.account" 
               :gridNumbers="user.gridnumbers" :questionIndex="user.questionindex"
               :question_finished_mask="user.questionfinishedmask"
