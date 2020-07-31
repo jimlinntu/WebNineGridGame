@@ -36,7 +36,9 @@
       <b-row class="text-center">
         <b-col cols="12"><h4>之前已提交的答案為:</h4></b-col>
         <b-col cols="12" class="previous_answer">{{ getCurrentAnswer.answertext }} </b-col>
-        <b-col cols="12"><img :src="getCurrentAnswer.answerbase64str"/></b-col>
+        <b-col cols="12">
+          <img v-if="getCurrentAnswer.answerbase64str" :src="getCurrentAnswer.answerbase64str"/>
+        </b-col>
       </b-row>
       <hr>
       <!-- Only show the elapsed seconds when this user has chosen a question!-->
